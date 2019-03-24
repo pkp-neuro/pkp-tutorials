@@ -1,8 +1,5 @@
 open Owl
 
-(** Hello world *)
-let maybe_do x f = match x with Some z -> f z | None -> ()
-
 (* --- Population of Poisson neurons ---- *)
 
 module Poisson_population (P: sig
@@ -71,7 +68,7 @@ let population_rate ~n ~dt spikes =
     1 (-1)
 
 (* spikes: list of spike times *)
-let ff ~dt ~tmin ~tmax ~window ~window_shift train =
+let ff ~tmin ~tmax ~window ~window_shift train =
   let counts = ref [] in
   let t = ref tmin in
   while !t +. window < tmax do
@@ -89,7 +86,7 @@ let average_ff spike_lists n ~dt ~tmin ~tmax ~window ~window_shift =
   Array.iteri (fun t s ->
       List.iter (fun k -> trains.(k) <- (dt *. float t) :: trains.(k)) s
     ) spike_lists;
-  trains |> Array.map (ff ~dt ~tmin ~tmax ~window ~window_shift) |> Stats.mean 
+  trains |> Array.map (ff ~tmin ~tmax ~window ~window_shift) |> Stats.mean 
 
 let discard_transient dt v =
   let cut = int_of_float (0.1 /. dt)  in
