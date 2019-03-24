@@ -1,0 +1,6 @@
+(library
+  (name pkp_balanced_net)
+  (public_name pkp.balanced_net)
+  (modes byte)
+  (libraries owl jupyter jupyter.notebook))
+
