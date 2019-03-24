@@ -11,7 +11,6 @@ module Poisson_population (P: sig
     val dt: float
   end) = struct
 
-  type t
   let n = P.n
   let p = P.dt *. P.rate
   let ids = Array.init n (fun i -> i)

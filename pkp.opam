@@ -1,15 +1,20 @@
-opam-version: "2.0"
-maintainer: "Guillaume Hennequin"
+opam-version: "2"
+maintainer: "Guillaume Hennequin <g.hennequin@eng.cam.ac.uk"
 authors: [ "Guillaume Hennequin" ]
+license: "MIT"
+homepage: "https://github.com/ghennequin/pkp-tutorials"
+dev-repo: "git+https://github.com/ghennequin/pkp-tutorials.git"
+
 build: [
-  ["dune" "build" "-p" name "-j" jobs]
+  [ "dune" "build" "-p" name "-j" jobs ]
 ]
+
 depends: [
   "ocaml" {>= "4.06.0"}
-  "dune" {build & >= "1.1.0"}
-  "base-unix"
-  "owl" {>= "0.4.0"}
-  "jupyter" {>= "2.4.0"}
-  "jupyter.notebook" {>= "2.4.0"}
+  "owl" {> "0.4.0"}
+  "gp"
+  "juplot"
+  "jupyter" {>= "2.4.0" }
+  "jupyter.notebook" {>= "2.4.0" }
 ]
-synopsis: "Balanced spiking networks"
+

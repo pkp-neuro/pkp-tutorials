@@ -1,0 +1,10 @@
+(library
+  (name pkp)
+  (public_name pkp)
+  (modes byte)
+  (libraries owl jupyter jupyter.notebook juplot))
+
+(env
+  (dev
+    (flags (:standard -warn-error -A))))
+
