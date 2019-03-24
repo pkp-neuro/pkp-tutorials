@@ -1,3 +1,6 @@
-S .
-B _build
 PKG owl juplot gp
+S .
+S _build/
+S _build/balanced_network/
+B _build
+B _build/balanced_network/
