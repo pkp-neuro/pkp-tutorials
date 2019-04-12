@@ -1,4 +1,9 @@
-module Misc = Pkp_misc
-module Balanced_net = Pkp_balanced_net
-module Rate_net = Pkp_rate_net
+(** Helper functions *)
+module Misc = Pkp__Misc
+
+(** Tutorial on balanced networks *)
+module Balanced_net = Pkp__Balanced_net
+
+(** Rate-based formulation of network dynamics *)
+module Rate_net = Pkp__Rate_net
 
