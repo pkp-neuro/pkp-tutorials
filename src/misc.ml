@@ -1,3 +1,4 @@
+open Owl
 open Gp
 
 let silence () = Jupyter_notebook.clear_output ()
@@ -17,4 +18,13 @@ let how_long f =
   let t1 = Unix.gettimeofday () in
   (result, t1 -. t0)
 
+let ou_process ~tau ~dt ~duration =
+  let n = int_of_float (duration /. dt) in
+  let x = Mat.gaussian 1 n in
+  for t = 1 to pred n do
+    Mat.set x 0 t
+      ( (Mat.get x 0 (pred t) *. (1. -. (dt /. tau)))
+      +. (Mat.get x 0 t *. dt /. tau *. sqrt (2. /. tau)) )
+  done ;
+  x
 
