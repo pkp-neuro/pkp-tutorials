@@ -28,3 +28,4 @@ val plottable_raster : dt:float -> int array array -> Mat.mat
 
 val population_rate : n:int -> dt:float -> int array array -> Mat.mat
 val random_synapses : int -> int -> int -> int list array
+val all_to_all_synapses : int -> int -> int list array

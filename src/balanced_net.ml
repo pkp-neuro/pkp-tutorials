@@ -104,3 +104,9 @@ let discard_transient dt v =
 let random_synapses n_in n_out n_syn =
   let ids = Array.init n_in (fun i -> i) in
   Array.init n_out (fun _ -> Stats.choose ids n_syn |> Array.to_list)
+
+let all_to_all_synapses n_in n_out =
+  let ids = Array.init n_in (fun i -> i) |> Array.to_list in
+  Array.make n_out ids
+ 
+
