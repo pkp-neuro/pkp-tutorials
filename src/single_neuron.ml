@@ -9,7 +9,7 @@ end
 (** {1 Hodgkin-Huxley model} *)
 
 (** type of voltage-dependent gate *)
-type gate = { alpha : float -> float; beta : float -> float }
+type gate = {alpha: float -> float; beta: float -> float}
 
 let steady_state gate vm =
   let a = gate.alpha vm and b = gate.beta vm in
@@ -19,11 +19,14 @@ module type HH_prms = sig
   val cm : float
   (** membrane capacitance (in F) *)
 
-  val g_leak_max : float
-  (** peak leak conductance (in S) *)
+  val vt : float
+  (** ~intrinsic spiking threshold *)
 
   val e_leak : float
   (** leak reversal potential (in V) *)
+
+  val g_leak_max : float
+  (** peak leak conductance (in S) *)
 
   val g_na_max : float
   (** peak conductance (in S) for sodium channels *)
@@ -48,40 +51,36 @@ module type HH_prms = sig
 end
 
 module HH_default_prms : HH_prms = struct
-  let cm = 100E-12
-
-  let g_leak_max = 30E-9
-
-  let e_leak = -60E-3
-
-  let g_na_max = 12E-6
-
-  let g_k_max = 3.6E-6
-
-  let e_na = 45E-3
-
-  let e_k = -82E-3
+  let cm = 1E-6
+  let vt = -60.
+  let e_leak = -70.0
+  let g_leak_max = 1E-4
+  let g_na_max = 50E-3
+  let g_k_max = 5E-3
+  let e_na = 50.0
+  let e_k = -90.0
 
   let m_gate =
     let alpha vm =
-      let dvm = -.vm -. 0.045 in
-      1E5 *. dvm /. (exp (100. *. dvm) -. 1.)
+      let dv = vm -. vt -. 13. in
+      -0.32 *. dv /. (exp (-.dv /. 4.) -. 1.)
+    and beta vm =
+      let dv = vm -. vt -. 40. in
+      0.28 *. dv /. (exp (dv /. 5.) -. 1.)
     in
-    let beta vm = 4E3 *. exp ((-.vm -. 0.070) /. 0.018) in
-    { alpha; beta }
+    {alpha; beta}
 
   let h_gate =
-    let alpha vm = 70. *. exp (50. *. (-.vm -. 0.070)) in
-    let beta vm = 1E3 /. (1. +. exp (100. *. (-.vm -. 0.040))) in
-    { alpha; beta }
+    let alpha vm = 0.128 *. exp (-.(vm -. vt -. 17.) /. 18.)
+    and beta vm = 4. /. (1. +. exp (-.(vm -. vt -. 40.) /. 5.)) in
+    {alpha; beta}
 
   let n_gate =
     let alpha vm =
-      let dvm = -.vm -. 0.060 in
-      1E4 *. dvm /. (exp (100. *. dvm) -. 1.)
-    in
-    let beta vm = 125. *. exp ((-.vm -. 0.070) /. 0.08) in
-    { alpha; beta }
+      let dv = vm -. vt -. 15. in
+      -0.032 *. dv /. (exp (-.dv /. 5.) -. 1.)
+    and beta vm = 0.5 *. exp (-.(vm -. vt -. 10.) /. 40.) in
+    {alpha; beta}
 end
 
 module HH (P : HH_prms) : Neuron = struct
@@ -105,22 +104,18 @@ module HH (P : HH_prms) : Neuron = struct
            +. (g_na_max *. m *. m *. m *. h *. (e_na -. vm))
            +. (g_k_max *. n *. n *. n *. n *. (e_k -. vm))
            +. input t )
-           /. cm;
-           (am *. (1. -. m)) -. (bm *. m);
-           (ah *. (1. -. h)) -. (bh *. h);
-           (an *. (1. -. n)) -. (bn *. n)
-        |]
+           /. cm
+         ; 1E3 *. ((am *. (1. -. m)) -. (bm *. m))
+         ; 1E3 *. ((ah *. (1. -. h)) -. (bh *. h))
+         ; 1E3 *. ((an *. (1. -. n)) -. (bn *. n)) |]
         1 4
     in
-    let t_spec = Owl_ode.Types.(T1 { t0 = 0.; duration; dt = 1E-5 }) in
+    let t_spec = Owl_ode.Types.(T1 {t0= 0.; duration; dt= 1E-5}) in
     let x0 =
-      let vm = -70E-3 in
+      let vm = -70. in
       Mat.of_array
-        [| vm;
-           steady_state m_gate vm;
-           steady_state h_gate vm;
-           steady_state n_gate vm
-        |]
+        [| vm; steady_state m_gate vm; steady_state h_gate vm
+         ; steady_state n_gate vm |]
         1 4
     in
     Ode.odeint (module Owl_ode_sundials.Owl_Cvode) dxdt x0 t_spec ()
@@ -130,25 +125,17 @@ end
 
 module type LIF_prms = sig
   val tau : float
-
   val v_rest : float
-
   val v_thresh : float
-
   val v_reset : float
-
   val dt : float
 end
 
 module LIF_default_prms : LIF_prms = struct
   let tau = 20E-3
-
   let v_rest = -70E-3
-
   let v_thresh = -60E-3
-
   let v_reset = -70E-3
-
   let dt = 1E-4
 end
 
@@ -164,12 +151,12 @@ module LIF (P : LIF_prms) : Neuron = struct
       Array.map
         (fun t ->
           if !spike then (
-            spike := false;
-            u := v_reset );
-          u := !u +. (dt /. tau *. (v_rest -. !u +. input t));
+            spike := false ;
+            u := v_reset ) ;
+          u := !u +. (dt /. tau *. (v_rest -. !u +. input t)) ;
           if !u > v_thresh then (
-            spike := true;
-            u := 0. );
+            spike := true ;
+            u := 0. ) ;
           !u )
         t
     in
