@@ -1,5 +1,4 @@
 open Owl
-open Gp
 
 let silence () = Jupyter_notebook.clear_output ()
 

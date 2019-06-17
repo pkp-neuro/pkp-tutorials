@@ -50,6 +50,7 @@ module type HH_prms = sig
   (** rate constants for the potassium "n" gate *)
 end
 
+(** A good set of default parameters *)
 module HH_default_prms : HH_prms = struct
   let cm = 1E-6
   let vt = -60.
@@ -63,23 +64,23 @@ module HH_default_prms : HH_prms = struct
   let m_gate =
     let alpha vm =
       let dv = vm -. vt -. 13. in
-      -0.32 *. dv /. (exp (-.dv /. 4.) -. 1.)
+      -320.0 *. dv /. (exp (-.dv /. 4.) -. 1.)
     and beta vm =
       let dv = vm -. vt -. 40. in
-      0.28 *. dv /. (exp (dv /. 5.) -. 1.)
+      280. *. dv /. (exp (dv /. 5.) -. 1.)
     in
     {alpha; beta}
 
   let h_gate =
-    let alpha vm = 0.128 *. exp (-.(vm -. vt -. 17.) /. 18.)
-    and beta vm = 4. /. (1. +. exp (-.(vm -. vt -. 40.) /. 5.)) in
+    let alpha vm = 128.0 *. exp (-.(vm -. vt -. 17.) /. 18.)
+    and beta vm = 4000. /. (1. +. exp (-.(vm -. vt -. 40.) /. 5.)) in
     {alpha; beta}
 
   let n_gate =
     let alpha vm =
       let dv = vm -. vt -. 15. in
-      -0.032 *. dv /. (exp (-.dv /. 5.) -. 1.)
-    and beta vm = 0.5 *. exp (-.(vm -. vt -. 10.) /. 40.) in
+      -32.0 *. dv /. (exp (-.dv /. 5.) -. 1.)
+    and beta vm = 500. *. exp (-.(vm -. vt -. 10.) /. 40.) in
     {alpha; beta}
 end
 
@@ -105,9 +106,9 @@ module HH (P : HH_prms) : Neuron = struct
            +. (g_k_max *. n *. n *. n *. n *. (e_k -. vm))
            +. input t )
            /. cm
-         ; 1E3 *. ((am *. (1. -. m)) -. (bm *. m))
-         ; 1E3 *. ((ah *. (1. -. h)) -. (bh *. h))
-         ; 1E3 *. ((an *. (1. -. n)) -. (bn *. n)) |]
+         ; (am *. (1. -. m)) -. (bm *. m)
+         ; (ah *. (1. -. h)) -. (bh *. h)
+         ; (an *. (1. -. n)) -. (bn *. n) |]
         1 4
     in
     let t_spec = Owl_ode.Types.(T1 {t0= 0.; duration; dt= 1E-5}) in
@@ -133,9 +134,9 @@ end
 
 module LIF_default_prms : LIF_prms = struct
   let tau = 20E-3
-  let v_rest = -70E-3
-  let v_thresh = -60E-3
-  let v_reset = -70E-3
+  let v_rest = -70.0
+  let v_thresh = -60.0
+  let v_reset = -70.0
   let dt = 1E-4
 end
 
