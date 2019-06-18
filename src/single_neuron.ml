@@ -1,53 +1,58 @@
 open Owl
 
 module type Neuron = sig
-  val simulate : duration:float -> (float -> float) -> Mat.mat * Mat.mat
   (** [simulate ~duration input] simulates the model for a specified [duration]
       and input current (in A) as a function of time (in s) *)
+  val simulate : duration:float -> (float -> float) -> Mat.mat * Mat.mat
 end
 
 (** {1 Hodgkin-Huxley model} *)
 
 (** type of voltage-dependent gate *)
-type gate = {alpha: float -> float; beta: float -> float}
+type gate =
+  { alpha : float -> float
+  ; beta : float -> float
+  }
 
 let steady_state gate vm =
-  let a = gate.alpha vm and b = gate.beta vm in
+  let a = gate.alpha vm
+  and b = gate.beta vm in
   a /. (a +. b)
 
+
 module type HH_prms = sig
-  val cm : float
   (** membrane capacitance (in F) *)
+  val cm : float
 
-  val vt : float
   (** ~intrinsic spiking threshold *)
+  val vt : float
 
-  val e_leak : float
   (** leak reversal potential (in V) *)
+  val e_leak : float
 
-  val g_leak_max : float
   (** peak leak conductance (in S) *)
+  val g_leak_max : float
 
-  val g_na_max : float
   (** peak conductance (in S) for sodium channels *)
+  val g_na_max : float
 
-  val g_k_max : float
   (** peak conductance (in S) for potassium channels *)
+  val g_k_max : float
 
-  val e_na : float
   (** reversal potential (in V) for sodium channels *)
+  val e_na : float
 
-  val e_k : float
   (** reversal potential (in V) for potassium channels *)
+  val e_k : float
 
-  val m_gate : gate
   (** rate constants for the sodium "m" gate *)
+  val m_gate : gate
 
-  val h_gate : gate
   (** rate constants for the sodium "h" gate *)
+  val h_gate : gate
 
-  val n_gate : gate
   (** rate constants for the potassium "n" gate *)
+  val n_gate : gate
 end
 
 (** A good set of default parameters *)
@@ -69,19 +74,21 @@ module HH_default_prms : HH_prms = struct
       let dv = vm -. vt -. 40. in
       280. *. dv /. (exp (dv /. 5.) -. 1.)
     in
-    {alpha; beta}
+    { alpha; beta }
+
 
   let h_gate =
     let alpha vm = 128.0 *. exp (-.(vm -. vt -. 17.) /. 18.)
     and beta vm = 4000. /. (1. +. exp (-.(vm -. vt -. 40.) /. 5.)) in
-    {alpha; beta}
+    { alpha; beta }
+
 
   let n_gate =
     let alpha vm =
       let dv = vm -. vt -. 15. in
       -32.0 *. dv /. (exp (-.dv /. 5.) -. 1.)
     and beta vm = 500. *. exp (-.(vm -. vt -. 10.) /. 40.) in
-    {alpha; beta}
+    { alpha; beta }
 end
 
 module HH (P : HH_prms) : Neuron = struct
@@ -101,23 +108,25 @@ module HH (P : HH_prms) : Neuron = struct
       let bh = h_gate.beta vm in
       let bn = n_gate.beta vm in
       Mat.of_array
-        [| ( (g_leak_max *. (e_leak -. vm))
+        [| ((g_leak_max *. (e_leak -. vm))
            +. (g_na_max *. m *. m *. m *. h *. (e_na -. vm))
            +. (g_k_max *. n *. n *. n *. n *. (e_k -. vm))
-           +. input t )
+           +. input t)
            /. cm
          ; (am *. (1. -. m)) -. (bm *. m)
          ; (ah *. (1. -. h)) -. (bh *. h)
-         ; (an *. (1. -. n)) -. (bn *. n) |]
-        1 4
+         ; (an *. (1. -. n)) -. (bn *. n)
+        |]
+        1
+        4
     in
-    let t_spec = Owl_ode.Types.(T1 {t0= 0.; duration; dt= 1E-5}) in
+    let t_spec = Owl_ode.Types.(T1 { t0 = 0.; duration; dt = 1E-5 }) in
     let x0 =
       let vm = -70. in
       Mat.of_array
-        [| vm; steady_state m_gate vm; steady_state h_gate vm
-         ; steady_state n_gate vm |]
-        1 4
+        [| vm; steady_state m_gate vm; steady_state h_gate vm; steady_state n_gate vm |]
+        1
+        4
     in
     Ode.odeint (module Owl_ode_sundials.Owl_Cvode) dxdt x0 t_spec ()
 end
@@ -151,15 +160,17 @@ module LIF (P : LIF_prms) : Neuron = struct
     let us =
       Array.map
         (fun t ->
-          if !spike then (
-            spike := false ;
-            u := v_reset ) ;
-          u := !u +. (dt /. tau *. (v_rest -. !u +. input t)) ;
-          if !u > v_thresh then (
-            spike := true ;
-            u := 0. ) ;
-          !u )
+          if !spike
+          then (
+            spike := false;
+            u := v_reset);
+          u := !u +. (dt /. tau *. (v_rest -. !u +. input t));
+          if !u > v_thresh
+          then (
+            spike := true;
+            u := 0.);
+          !u)
         t
     in
-    (Mat.of_array t (-1) 1, Mat.of_array us (-1) 1)
+    Mat.of_array t (-1) 1, Mat.of_array us (-1) 1
 end
