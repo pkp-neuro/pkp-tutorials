@@ -29,10 +29,10 @@ module type Mission = sig
   val is_full : board -> bool
 
   val play_game
-    :  display:(board -> unit)
+    :  ?display:(board -> unit)
     -> finished:(board -> bool)
     -> player * player
-    -> unit
+    -> board
 end
 
 module Make (M : Mission) = struct
@@ -153,10 +153,19 @@ module Make (M : Mission) = struct
       Unix.sleepf 0.1
 
 
-  let play (player1, player2) =
-    let display_id = Jupyter_notebook.display "text/html" "" in
-    let display = display_in_notebook ~display_id in
-    play_game ~display ~finished (player1, player2)
+  let play ?(display = true) (player1, player2) =
+    let display =
+      if display
+      then
+        Some (display_in_notebook ~display_id:(Jupyter_notebook.display "text/html" ""))
+      else None
+    in
+    let final_board = play_game ?display ~finished (player1, player2) in
+    match evaluate player1.mark final_board with
+    | Tie -> None
+    | Win -> Some player1.mark
+    | Lose -> Some player2.mark
+    | _ -> assert false
 end
 
 module Solution : Mission = struct
@@ -181,10 +190,12 @@ module Solution : Mission = struct
     Array.fold_left (fun accu row -> accu && not (Array.mem None row)) true b
 
 
-  let play_game ~display ~finished (player, next_player) =
+  let play_game ?display ~finished (player, next_player) =
     let rec iter b (p, np) =
-      display b;
-      if not (finished b) then iter (p.play b) (np, p)
+      (match display with
+      | Some d -> d b
+      | None -> ());
+      if not (finished b) then iter (p.play b) (np, p) else b
     in
     iter empty_board (player, next_player)
 end

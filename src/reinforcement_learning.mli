@@ -37,23 +37,25 @@ module type Mission = sig
   (** Check whether a board is full -- i.e. that here is no single [None] element in it. *)
   val is_full : board -> bool
 
-  (** [play_game ~display (player1, player2)] should implement a loop that
-      alternates between player1 (to start) and player2, starting from [empty_board].
-      It shoud also call [display board] on the current board configuration at every step.
-      Note that display is an argument here, you need not implement it.
-      You also have access (in the arguments) to [finished], which says whether
-      the current board corresponds to a terminated game. *)
+  (** [play_game ?display (player1, player2)] should implement a loop that
+      alternates between player1 (to start) and player2, starting from
+      [empty_board]; the function should return the final board configuration.
+      If the optional argument [display] is provided, you should use it to
+      display the current board at each iteration. You also have access (in the
+      arguments) to [finished], which says whether the current board corresponds
+      to a terminated game. *)
   val play_game
-    :  display:(board -> unit)
+    :  ?display:(board -> unit)
     -> finished:(board -> bool)
     -> player * player
-    -> unit
+    -> board
 end
+
 
 module Make (M : Mission) : sig
   val optimal : mark -> player
   val random : mark -> player
-  val play : player * player -> unit
+  val play : ?display:bool -> player * player -> mark option
 end
 
-module Solution: Mission
+module Solution : Mission
