@@ -27,3 +27,24 @@ let ou_process ~tau ~dt ~duration =
   done ;
   x
 
+(** simple function memoization; takes a function f, returns the
+    memoized version of it *)
+let memoize f =
+  let table = Hashtbl.create 100 in
+  fun x ->
+    try Hashtbl.find table x with
+    | Not_found ->
+      let y = f x in
+      Hashtbl.add table x y;
+      y
+
+
+(** memoization for recursive functions; takes the non-recursive tail call function, 
+    and makes it a memoize recursive function;
+    e.g. memoize_rec (fun fib i -> if i<=1 then i else fib (i-1) + fib (i-2)) *)
+let memoize_rec f_norec =
+  let fref = ref (fun _ -> assert false) in
+  let f = memoize (fun x -> f_norec !fref x) in
+  fref := f;
+  f
+
