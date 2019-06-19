@@ -87,12 +87,12 @@ module Make (M : Mission) = struct
     fun b -> finished X b || finished O b
 
 
-  (* value function using dynamic programming, assuming the one player
-   takes random actions *)
+  (* value function using dynamic programming, assuming the opponent 
+     takes random actions *)
   let value value_fun (mark, b) =
     match evaluate mark b with
-    | Win -> b, 11.0
-    | Tie -> b, 6.0
+    | Win -> b, 2.0
+    | Tie -> b, 1.0
     | Lose -> b, 0.0
     | Unfinished ->
       let cs = choices mark b in
@@ -108,15 +108,11 @@ module Make (M : Mission) = struct
               c, mean (List.map (fun o -> snd (value_fun (mark, o))) outcomes))
             cs
         in
-        (* extract the best resulting board & associated value *)
-        let best, associated_value =
-          List.fold_left
-            (fun accu (c, v) -> if v > snd accu then c, v else accu)
-            ([||], -1000000.0)
-            results
-        in
-        (* add a -1 cost for playing one turn *)
-        best, associated_value)
+        (* extract the best choice & associated value *)
+        List.fold_left
+          (fun accu (c, v) -> if v > snd accu then c, v else accu)
+          ([||], -1000000.0)
+          results)
 
 
   let random mark =
