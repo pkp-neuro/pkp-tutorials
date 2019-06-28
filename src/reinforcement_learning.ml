@@ -48,7 +48,7 @@ module Make (M : Mission) = struct
     let n = Array.length b in
     let ids = Array.init n (fun i -> i) in
     let check_for j_of =
-      Array.fold_left (fun accu i -> accu && b.(i).(j_of i) = Some mark) false ids
+      Array.fold_left (fun accu i -> accu && b.(i).(j_of i) = Some mark) true ids
     in
     check_for (fun i -> i) || check_for (fun i -> n - i - 1)
 
