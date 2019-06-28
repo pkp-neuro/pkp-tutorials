@@ -87,8 +87,7 @@ module Make (M : Mission) = struct
     fun b -> finished X b || finished O b
 
 
-  (* value function using dynamic programming, assuming the opponent 
-     takes random actions *)
+  (* value function using dynamic programming, assuming the opponent takes random actions *)
   let value value_fun (mark, b) =
     match evaluate mark b with
     | Win -> b, 2.0

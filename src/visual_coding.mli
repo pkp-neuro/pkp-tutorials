@@ -10,7 +10,6 @@ module Sparse_coding : sig
     ; n_bases : int
     ; bfgs_max_iter : int
     ; lambda : float
-    ; sigma : float
     ; learning_rate : float
     }
 

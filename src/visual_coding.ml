@@ -13,9 +13,9 @@ let minibatch file patch_size =
         let i = Random.int n_img in
         let x = Random.int (dim_x - patch_size) in
         let y = Random.int (dim_y - patch_size) in
-        Arr.get_slice
-          [ [ i ]; [ x; x + patch_size - 1 ]; [ y; y + patch_size - 1 ] ]
-          images)
+        images
+        |> Arr.get_slice [ [ i ]; [ x; x + patch_size - 1 ]; [ y; y + patch_size - 1 ] ]
+        |> fun m -> if Random.bool () then Arr.swap 1 2 m else m)
     |> Arr.concatenate ~axis:0
 
 
@@ -25,17 +25,15 @@ module Sparse_coding = struct
     ; n_bases : int
     ; bfgs_max_iter : int
     ; lambda : float
-    ; sigma : float
     ; learning_rate : float
     }
 
   let default_prms =
-    { batch_size = 200
-    ; n_bases = 512
-    ; bfgs_max_iter = 100
+    { batch_size = 100
+    ; n_bases = 100
+    ; bfgs_max_iter = 1000
     ; lambda = 0.3
-    ; sigma = 0.08
-    ; learning_rate = 5.0
+    ; learning_rate = 1.
     }
 
 
@@ -47,14 +45,14 @@ module Sparse_coding = struct
     s.(1) * s.(2)
 
 
-  let cost ~prms s =
+  let cost ~prms ~sigma s =
     let open Algodiff.D in
     let s = pack_arr s in
     let z = float prms.batch_size in
     fun b a ->
       let error = Maths.(l2norm_sqr' (s - (b *@ a))) in
       let sparsity =
-        let h = Maths.(F prms.lambda * log (F 1.0 + sqr (a / F prms.sigma))) in
+        let h = Maths.(F prms.lambda * log (F 1.0 + sqr (a / F sigma))) in
         Maths.(sum' h)
       in
       Maths.((error + sparsity) / F z)
@@ -62,22 +60,32 @@ module Sparse_coding = struct
 
   (* main loop *)
   let rec iter ?callback ~prms ~minibatch k a b =
+    Gc.major ();
     let open Algodiff.D in
+    (* grab the sigma from the previous iteration *)
     let s =
       minibatch prms.batch_size
       |> fun v -> Owl.Arr.reshape v [| prms.batch_size; -1 |] |> Owl.Mat.transpose
     in
-    let cost = cost ~prms s in
+    let cost = cost ~prms ~sigma:0.05 s in
     (* optimize the activations given fixed basis functions *)
     let a =
       Owl_lbfgs.minimise
         ~callback:(fun st _ -> Lbfgs.iter st > prms.bfgs_max_iter)
-        (S { f = cost b; init_prms = a })
+        (S { f = cost b; init_prms = Mat.zeros Mat.(row_num a) Mat.(col_num a) })
       |> snd
       |> Owl_lbfgs.unpack_s
     in
-    let db = (grad (fun b -> cost b a)) b in
-    let b = Maths.(b - (F prms.learning_rate * db)) |> unpack_arr in
+    (* take a gradient step for the basis functions *)
+    let rec descent b kk =
+      if kk = 0
+      then b
+      else (
+        let db = (grad (fun b -> cost b a)) b in
+        let b = Maths.(b - (F prms.learning_rate * db)) in
+        descent b (kk - 1))
+    in
+    let b = descent b 1 |> unpack_arr in
     let b = Owl.Mat.(b / l2norm ~axis:0 b) |> pack_arr in
     (match callback with
     | Some f ->
@@ -89,7 +97,9 @@ module Sparse_coding = struct
 
   let optimize ?callback prms minibatch =
     let n_pix = n_pix minibatch in
-    let a = Mat.zeros prms.n_bases prms.batch_size |> Algodiff.D.pack_arr in
+    let a =
+      Mat.gaussian ~sigma:0.08 prms.n_bases prms.batch_size |> Algodiff.D.pack_arr
+    in
     let b =
       let b = Mat.gaussian n_pix prms.n_bases in
       Mat.(b / l2norm ~axis:0 b) |> Algodiff.D.pack_arr
@@ -113,19 +123,30 @@ let plot_bases ?(display_id = Jupyter_notebook.display "text/html" "") grid_size
   let figure (module P : Plot) =
     P.multiplot
       ~rect:((0.1, 0.1), (0.9, 0.9))
-      ~spacing:(0.005, 0.005)
+      ~spacing:(0.01, 0.01)
       (grid_size, grid_size)
       (fun k _ _ ->
         let patch = Mat.(reshape (col b k) [| size; size |]) in
-        P.heatmap patch [ barebone; unset "colorbox" ])
+        P.heatmap patch ~style:"image pixels" [ barebone; unset "colorbox" ])
   in
-  Juplot.draw ~fmt:`svg ~size:(500, 500) ~display_id figure
+  Juplot.draw ~fmt:`png ~size:(500, 500) ~display_id figure
 
 
 let default_callback () =
   let text_id = Jupyter_notebook.display "text/html" "" in
   let img_id = Jupyter_notebook.display "text/html" "" in
+  let cost_history = ref [] in
+  let log_cost c =
+    cost_history := c :: !cost_history;
+    if List.length !cost_history > 100
+    then cost_history := !cost_history |> List.rev |> List.tl |> List.rev
+  in
+  let mean x = List.fold_left ( +. ) 0. x /. float (List.length x) in
   fun iter _ b cost ->
-    Jupyter_notebook.printf "iteration: %05i | cost: %.5f%!" iter cost;
+    log_cost cost;
+    Jupyter_notebook.printf
+      "iteration: %05i | cost [avg over last 100 iterations]: %.5f%!"
+      iter
+      (mean !cost_history);
     Jupyter_notebook.display_formatter ~display_id:text_id "text/html" |> ignore;
-    if iter mod 2 = 0 then plot_bases ~display_id:img_id 10 b
+    if iter mod 10 = 0 then plot_bases ~display_id:img_id 10 b
