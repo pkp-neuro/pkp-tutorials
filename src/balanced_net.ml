@@ -1,112 +1,287 @@
 open Owl
 
-(* --- Population of Poisson neurons ---- *)
+(* simple ordered queue module for logging event times *)
+module Queue = struct
+  let empty = []
 
-module Poisson_population (P : sig
-  val n : int
-  val rate : float
-  val dt : float
-end) =
-struct
-  let n = P.n
-  let p = P.dt *. P.rate
-  let ids = Array.init n (fun i -> i)
-  let _spikes = ref [||]
-  let spikes () = !_spikes
-  let step () = _spikes := Stats.(choose ids (binomial_rvs ~p ~n))
-end
-
-(* --- Population of leaky integrate-and-fire (LIF) neurons ---- *)
-
-module LIF_population (P : sig
-  val free_vm : bool
-  val n : int
-  val dt : float
-  val tau : float
-  val threshold : float
-end) =
-struct
-  open P
-
-  let n = P.n
-  let us = Mat.zeros 1 n
-  let _spikes = ref [||]
-  let spikes () = !_spikes
-
-  let step inputs =
-    (* decay *)
-    Mat.scalar_mul_ ~out:us (1. -. (dt /. tau)) us ;
-    (* synaptic input *)
-    List.iter
-      (fun (w, synapses, spikes) ->
-        (* synapses.(pre) = list of post 
-         * spikes: list of pre *)
-        Array.iter
-          (fun pre ->
-            let slice = [I 0; L synapses.(pre)] in
-            Mat.set_fancy slice us Mat.(w $+ get_fancy slice us) )
-          (spikes ()) )
-      inputs ;
-    (* threshold-crossing *)
-    _spikes := Mat.filter (fun u -> u > threshold) us ;
-    (* reset *)
-    Mat.set_fancy
-      [I 0; L (Array.to_list !_spikes)]
-      us
-      Mat.(zeros 1 (Array.length !_spikes))
-end
-
-(* dealing with spike trains *)
-
-let plottable_raster ~dt indices =
-  let r = ref [] in
-  Array.iteri
-    (fun t s -> Array.iter (fun k -> r := [|dt *. float t; float k|] :: !r) s)
-    indices ;
-  !r |> Array.of_list |> Mat.of_arrays
-
-let population_rate ~n ~dt spikes =
-  Mat.of_array
-    Array.(map (fun s -> float (length s) /. dt /. float n) spikes)
-    1 (-1)
-
-(* spikes: list of spike times *)
-let ff ~tmin ~tmax ~window ~window_shift train =
-  let counts = ref [] in
-  let t = ref tmin in
-  while !t +. window < tmax do
-    let _t = !t and _tt = !t +. window in
-    let count =
-      List.fold_left
-        (fun c ts -> if ts >= _t && ts < _tt then c + 1 else c)
-        0 train
+  let add queue x =
+    let x_time, _ = x in
+    let rec process left right =
+      match right with
+      | ((hd_time, _) as hd) :: tl ->
+        if x_time < hd_time
+        then List.rev_append left (x :: right)
+        else process (hd :: left) tl
+      | [] -> List.rev (x :: left)
     in
-    counts := count :: !counts ;
-    t := !t +. window_shift
-  done ;
-  let counts = !counts |> Array.of_list |> Array.map float in
-  Stats.var counts /. Stats.mean counts
+    process [] queue
+end
 
-let average_ff spike_lists n ~dt ~tmin ~tmax ~window ~window_shift =
-  let trains = Array.make n [] in
-  Array.iteri
-    (fun t s ->
-      List.iter (fun k -> trains.(k) <- (dt *. float t) :: trains.(k)) s )
-    spike_lists ;
-  trains |> Array.map (ff ~tmin ~tmax ~window ~window_shift) |> Stats.mean
+module LIF = struct
+  type 'a t =
+    { tau_refr : float
+    ; tau : float
+    ; threshold : float
+    ; axon_delay : float
+    ; mutable spikes : float list
+    ; mutable last_known_voltage : float * float
+    ; mutable voltages : (float * float) list option
+    ; mutable targets : (float * 'a) list
+    }
+end
 
-let discard_transient dt v =
-  let cut = int_of_float (0.1 /. dt) in
-  Array.sub v cut (Array.length v - cut)
+module Poisson = struct
+  type 'a t =
+    { lambda : float
+    ; mutable spikes : float list
+    ; mutable targets : (float * 'a) list
+    }
+end
 
-(* ------ Build connectivity ------- *)
+type neuron =
+  [ `lif of neuron LIF.t
+  | `poisson of neuron Poisson.t
+  ]
 
-let random_synapses n_in n_out n_syn =
-  let ids = Array.init n_in (fun i -> i) in
-  Array.init n_out (fun _ -> Stats.choose ids n_syn |> Array.to_list)
+let to_lif = function
+  | `lif x -> `lif x
+  | `poisson _ -> assert false
 
-let all_to_all_synapses n_in n_out =
-  let ids = Array.init n_in (fun i -> i) |> Array.to_list in
-  Array.make n_out ids
- 
 
+let reset = function
+  | `lif x ->
+    let open LIF in
+    x.targets <- [];
+    x.spikes <- [];
+    x.last_known_voltage <- 0., 0.;
+    x.voltages
+      <- (match x.voltages with
+         | Some _ -> Some []
+         | None -> None)
+  | `poisson x ->
+    let open Poisson in
+    x.targets <- [];
+    x.spikes <- []
+
+
+let spikes = function
+  | `lif x -> x.LIF.spikes
+  | `poisson x -> x.Poisson.spikes
+
+
+let add_to_targets pre c =
+  match pre with
+  | `lif x -> x.LIF.targets <- c @ x.LIF.targets
+  | `poisson x -> x.Poisson.targets <- c @ x.Poisson.targets
+
+
+let lif
+    ?(tau = 20E-3)
+    ?(tau_refr = 5E-3)
+    ?(threshold = 1.0)
+    ?axon_delay
+    ?(log_voltage = true)
+    ()
+  =
+  let open LIF in
+  let axon_delay =
+    match axon_delay with
+    | Some x -> x
+    | None -> Owl_stats.uniform_rvs ~a:0. ~b:2E-3
+  in
+  `lif
+    { tau
+    ; tau_refr
+    ; threshold
+    ; axon_delay
+    ; spikes = []
+    ; last_known_voltage = 0., 0.
+    ; voltages = (if log_voltage then Some [] else None)
+    ; targets = []
+    }
+
+
+let log_voltage x v =
+  x.LIF.last_known_voltage <- v;
+  match x.LIF.voltages with
+  | None -> ()
+  | Some vs -> x.LIF.voltages <- Some (v :: vs)
+
+
+let voltage_trace ?(dt = 1E-3) ~duration = function
+  | `poisson _ -> failwith "a Poisson neuron has no voltage"
+  | `lif x ->
+    let open LIF in
+    let rec consume events vs t v =
+      if t >= duration
+      then vs |> List.rev |> Array.of_list |> fun m -> Mat.of_array m (-1) 1
+      else (
+        match events with
+        | [] ->
+          let v = v *. exp (-.dt /. x.tau) in
+          consume events (v :: vs) (t +. dt) v
+        | (t_ev, _) :: _ when t < t_ev ->
+          (* we are still waiting for the next jump *)
+          let v = v *. exp (-.dt /. x.tau) in
+          consume events (v :: vs) (t +. dt) v
+        | (t_ev, v_ev) :: rest ->
+          (* we have just moved past an event *)
+          let v = v_ev *. exp (-.(t -. t_ev) /. x.tau) in
+          (* we still need to look ahead to check that if we
+             step into t +. dt, we are not going to leave the next event behind,
+             in which case we would then miss it *)
+          (match rest with
+          | [] -> consume rest (v :: vs) (t +. dt) v
+          | (t_ev', _) :: _ when t_ev' > t +. dt -> consume rest (v :: vs) (t +. dt) v
+          | _ -> consume rest vs t v))
+    in
+    (match x.LIF.voltages with
+    | None -> failwith "no voltage was recorded for this neuron"
+    | Some vs ->
+      let events = List.sort (fun (t1, _) (t2, _) -> compare t1 t2) vs in
+      consume events [] 0. 0.)
+
+
+let process_input (`lif x) (t, w) queue =
+  let open LIF in
+  match x.spikes with
+  | last :: _ when t < last +. x.tau_refr ->
+    (* do nothing if still within refractory period *) queue
+  | _ ->
+    let t_prev, u_prev = x.last_known_voltage in
+    let u = (u_prev *. exp ((t_prev -. t) /. x.tau)) +. w in
+    if u < x.threshold
+    then (
+      log_voltage x (t, u);
+      queue)
+    else (
+      (* spike! *)
+      log_voltage x (t, 0.);
+      x.spikes <- t :: x.spikes;
+      Queue.add queue (t +. x.axon_delay, `lif x))
+
+
+let poisson rate = `poisson Poisson.{ lambda = 1. /. rate; spikes = []; targets = [] }
+
+let exp_rv rate =
+  let u = Random.float 1.0 in
+  -.rate *. log1p (-.u)
+
+
+let kickoff queue x =
+  match x with
+  | `poisson n ->
+    let open Poisson in
+    let first_spike = exp_rv n.lambda in
+    Queue.add queue (first_spike, x)
+  | _ -> queue
+
+
+let poisson_renew (`poisson x) t queue =
+  let open Poisson in
+  (* log the previous spike *)
+  x.spikes <- t :: x.spikes;
+  Queue.add queue (t +. exp_rv x.lambda, `poisson x)
+
+
+type connections = neuron * (float * neuron) list
+
+let all_to_all_connections ~from ~onto ~w =
+  Array.map
+    (fun pre ->
+      ( pre
+      , Array.map
+          (function
+            | `poisson _ -> failwith "can't connect onto a Poisson neuron"
+            | `lif post -> w, `lif post)
+          onto
+        |> Array.to_list ))
+    from
+
+
+let random_connections ~from ~onto ~k ~w =
+  Array.map
+    (fun pre ->
+      (* draw k targets in post, at random, without replacement *)
+      ( pre
+      , Stats.choose onto k
+        |> Array.map (function
+               | `poisson _ -> failwith "can't connect onto a Poisson neuron"
+               | `lif post -> w, `lif post)
+        |> Array.to_list ))
+    from
+
+
+type network =
+  { neurons : neuron array list
+  ; connections : connections array list
+  }
+
+let simulate ~duration net =
+  (* make sure to reset all neurons first *)
+  List.iter (Array.iter reset) net.neurons;
+  (* set the connections *)
+  List.iter (Array.iter (fun (pre, c) -> add_to_targets pre c)) net.connections;
+  (* main iterator -- just go recursively through the event queue *)
+  let rec iter queue =
+    match queue with
+    | [] ->
+      (* we are only starting, so let Poisson neurons register their first spike times *)
+      let queue = List.fold_left (Array.fold_left kickoff) queue net.neurons in
+      iter queue
+    | (t, _) :: _ when t > duration ->
+      () (* finish with the first spike after goes past [duration] *)
+    | (t, label) :: rest ->
+      (* process this spike *)
+      (match label with
+      | `poisson x ->
+        (* if it's Poisson neuron, log its spike, and register a new one *)
+        let queue = poisson_renew (`poisson x) t rest in
+        (* propagate to target neurons *)
+        let queue =
+          List.fold_left
+            (fun accu (w, post) -> process_input (to_lif post) (t, w) accu)
+            queue
+            x.Poisson.targets
+        in
+        iter queue
+      | `lif pre ->
+        (* if this spike comes from an E neuron, propagate it and update other neurons *)
+        let queue =
+          List.fold_left
+            (fun accu (w, post) -> process_input (to_lif post) (t, w) accu)
+            rest
+            pre.LIF.targets
+        in
+        iter queue)
+  in
+  iter Queue.empty
+
+
+let raster spikes =
+  Array.fold_left
+    (fun (i, accu) spike_list ->
+      i + 1, List.fold_left (fun accu' t -> [| t; float i |] :: accu') accu spike_list)
+    (0, [])
+    spikes
+  |> snd
+  |> Array.of_list
+  |> Mat.of_arrays
+
+
+let plottable_voltage ?(style = "lc 8") ~duration (x : neuron) =
+  let dt = 1E-3 in
+  let v = voltage_trace ~dt ~duration x in
+  let time = Mat.linspace 0. duration (Mat.row_num v) in
+  Gp.item (L [ time; v ]) ~style:("l " ^ style)
+
+
+let plottable_spikes ?(bar_height = 5.) ?(style = "lc 8") (x : neuron) =
+  let data =
+    spikes x
+    |> (function
+         | [] -> [| [| 0.; 0.; 0.; 0. |] |]
+         | x -> x |> Array.of_list |> Array.map (fun t -> [| t; 0.; 0.; bar_height |]))
+    |> Mat.of_arrays
+  in
+  Gp.item (A data) ~using:"1:2:3:4" ~style:("vectors nohead " ^ style)

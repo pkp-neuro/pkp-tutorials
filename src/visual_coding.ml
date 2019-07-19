@@ -57,7 +57,6 @@ module Sparse_coding = struct
       in
       Maths.((error + sparsity) / F z)
 
-
   (* main loop *)
   let rec iter ?callback ~prms ~minibatch k a b =
     Gc.major ();
