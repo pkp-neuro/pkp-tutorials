@@ -161,12 +161,8 @@ let process_input (`lif x) (t, w) queue =
       Queue.add queue (t +. x.axon_delay, `lif x))
 
 
-let poisson rate = `poisson Poisson.{ lambda = 1. /. rate; spikes = []; targets = [] }
-
-let exp_rv rate =
-  let u = Random.float 1.0 in
-  -.rate *. log1p (-.u)
-
+let poisson rate = `poisson Poisson.{ lambda = rate; spikes = []; targets = [] }
+let exp_rv lambda = Owl_stats.exponential_rvs ~lambda
 
 let kickoff queue x =
   match x with
