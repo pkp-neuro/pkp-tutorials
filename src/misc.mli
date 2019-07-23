@@ -2,6 +2,9 @@ open Owl
 
 (** {1 Interact with the notebook} *)
 
+(** Prints a message *)
+val print_msg : string -> unit
+
 (** Add [let _ = Pkp.Misc.silence ()] at the end of a cell so that
     its output gets cleared right after execution. *)
 val silence : unit -> unit
