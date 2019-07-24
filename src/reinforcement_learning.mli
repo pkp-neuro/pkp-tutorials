@@ -63,7 +63,7 @@ module Make (M : Mission) : sig
   val optimal : mark -> player
 
   (** A random player: at every turn, it picks a move uniformly at random among
-      all available moves.Shouldn't be too hard to beat! *)
+      all available moves. Shouldn't be too hard to beat! *)
   val random : mark -> player
 
   (** Automatically play a game between two players (A, B); player A starts.

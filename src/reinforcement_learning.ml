@@ -147,12 +147,16 @@ module Make (M : Mission) = struct
         |> List.map (fun v -> "<tr>" ^ v ^ "</tr>")
         |> String.concat ""
       in
-      Jupyter_notebook.printf "<table style=\"border: 1px solid;\">%s</table>%!" s;
+      Jupyter_notebook.printf
+        "<div style=\"text-align: center; margin-top:1em;\"><table style=\"border: 1px \
+         solid; margin-left: auto; margin-right:auto;\">%s</table></div>%!"
+        s;
       Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore;
       Unix.sleepf 0.1
 
 
   let play ?(display = true) (player1, player2) =
+    if player1.mark = player2.mark then failwith "Players can't play with the same mark.";
     let display =
       if display
       then
