@@ -1,7 +1,7 @@
 (** Dynamic programming and memoization applied to a simple
     reinforcement learning scenario: TIC-TAC-TOE. *)
 
-(** Some types to represent marks, boards, etc *)
+(** {1 Some types to represent marks, boards, etc} *)
 
 type mark =
   | O
@@ -19,6 +19,8 @@ type player =
   { play : board -> board
   ; mark : mark
   }
+
+(** {1 The student's mission} *)
 
 (** Student: your MISSION is to implement each element of the following module: *)
 module type Mission = sig
@@ -62,4 +64,7 @@ module Make (M : Mission) : sig
   val play : ?display:bool -> player * player -> mark option
 end
 
+(** {1 Solution} *)
+
+(** This is the solution module which you can use in place of your own. *)
 module Solution : Mission
