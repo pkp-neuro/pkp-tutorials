@@ -33,7 +33,7 @@ module type Mission = sig
   (** The mean of a list of numbers *)
   val mean : float list -> float
 
-  (** For a list of pairs [ (a1, b1); (a2, b2); ... ],
+  (** For a list of pairs [[ (a1, b1); (a2, b2); ... ]],
       return the pair that has the largest b value.
       Hint: use List.fold_left *)
   val max_pair_list : ('a * float) list -> 'a * float
@@ -59,8 +59,17 @@ module type Mission = sig
 end
 
 module Make (M : Mission) : sig
+  (** Optimal player, i.e. the one that solves the Bellman equation as discussed in the notebook *)
   val optimal : mark -> player
+
+  (** A random player: at every turn, it picks a move uniformly at random among
+      all available moves.Shouldn't be too hard to beat! *)
   val random : mark -> player
+
+  (** Automatically play a game between two players (A, B); player A starts.
+      The game is displayed in the notebook by default, but you can switch this off
+      using [~display:false]. Returns the game outcome, which is either the winner
+      ([Some mark] where [mark] is either [X] or [O]) if there is one, or [None] for a tie. *)
   val play : ?display:bool -> player * player -> mark option
 end
 
