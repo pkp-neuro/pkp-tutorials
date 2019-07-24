@@ -25,6 +25,7 @@ module type Mission = sig
   val other_mark : mark -> mark
   val empty_board : board
   val mean : float list -> float
+  val max_pair_list : ('a * float) list -> 'a * float
   val transpose : board -> board
   val is_full : board -> bool
 
@@ -90,28 +91,27 @@ module Make (M : Mission) = struct
   (* value function using dynamic programming, assuming the opponent takes random actions *)
   let value value_fun (mark, b) =
     match evaluate mark b with
-    | Win -> b, 2.0
-    | Tie -> b, 1.0
+    | Win -> b, 1.0
+    | Tie -> b, 0.5
     | Lose -> b, 0.0
     | Unfinished ->
       let cs = choices mark b in
       (match cs with
       | [ final_board ] -> value_fun (mark, final_board)
       | _ ->
-        (* if the opponent can still play...
-         ... evaluate the opponent and return resulting boards *)
-        let results =
+        (* if the opponent can still play... *)
+        let choice_values =
+          (* for each choice c we can make ... *)
           List.map
             (fun c ->
+              (* enumerate all possible outcomes (assuming the opponent plays randomly) *)
               let outcomes = choices (other_mark mark) c in
-              c, mean (List.map (fun o -> snd (value_fun (mark, o))) outcomes))
+              (* and return our choice c along with the average subsequent value *)
+              c, mean (List.map (fun b' -> snd (value_fun (mark, b'))) outcomes))
             cs
         in
-        (* extract the best choice & associated value *)
-        List.fold_left
-          (fun accu (c, v) -> if v > snd accu then c, v else accu)
-          ([||], -1000000.0)
-          results)
+        (* finally, the value is given by the value of the best action: *)
+        max_pair_list choice_values)
 
 
   let random mark =
@@ -178,6 +178,22 @@ module Solution : Mission = struct
   let mean x =
     let n = List.length x in
     List.fold_left ( +. ) 0. x /. float n
+
+
+  let max_pair_list x =
+    match x with
+    | [] -> failwith "empty list"
+    | (a_head, _) :: _ ->
+      List.fold_left
+        (fun best_so_far elt ->
+          let _, b' = best_so_far in
+          let _, b = elt in
+          if b > b' then elt else best_so_far)
+        (* we need an a value to start with, but since we don't know
+           the type of a a priori, we have to grab an a that's already
+           in the list; here I pick the head *)
+        (a_head, -.max_float)
+        x
 
 
   let transpose b =

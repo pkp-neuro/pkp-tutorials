@@ -31,6 +31,11 @@ module type Mission = sig
   (** The mean of a list of numbers *)
   val mean : float list -> float
 
+  (** For a list of pairs [ (a1, b1); (a2, b2); ... ],
+      return the pair that has the largest b value.
+      Hint: use List.fold_left *)
+  val max_pair_list : ('a * float) list -> 'a * float
+
   (** The (matrix) transpose of a board *)
   val transpose : board -> board
 
