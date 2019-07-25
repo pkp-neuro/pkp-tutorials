@@ -1,7 +1,7 @@
 open Owl
 
 (** Hodgkin-Huxley model *)
-module Hodgkin_Huxley : sig
+module HH : sig
   (** type of voltage-dependent gate *)
   type gate =
     { alpha : float -> float

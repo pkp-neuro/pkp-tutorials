@@ -1,6 +1,6 @@
 open Owl
 
-module Hodgkin_Huxley = struct
+module HH = struct
   type gate =
     { alpha : float -> float
     ; beta : float -> float
