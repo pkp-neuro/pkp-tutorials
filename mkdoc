@@ -3,5 +3,6 @@
 eval $(opam env)
 
 dune build @doc
-/bin/cp -rfu _build/default/_doc/_html/* docs/
+rm -rf docs/*
+/bin/cp -r _build/default/_doc/_html/* docs/
 
