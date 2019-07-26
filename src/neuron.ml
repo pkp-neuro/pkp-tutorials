@@ -12,6 +12,12 @@ module HH = struct
     a /. (a +. b)
 
 
+  let time_constant gate vm =
+    let a = gate.alpha vm
+    and b = gate.beta vm in
+    1.0 /. (a +. b)
+
+
   type prms =
     { cm : float
     ; vt : float

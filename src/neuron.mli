@@ -8,7 +8,11 @@ module HH : sig
     ; beta : float -> float
     }
 
+  (** Steady state activation of a gate at a given Vm *)
   val steady_state : gate -> float -> float
+
+  (** Time constant at which relaxation to steady-state occurs, for a given Vm *)
+  val time_constant : gate -> float -> float
 
   type prms =
     { cm : float (** membrane capacitance (in F) *)
