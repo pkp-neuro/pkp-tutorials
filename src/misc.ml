@@ -5,7 +5,24 @@ let upgrade () =
   let c = Cmd.(v "sh" % "/home/opam/update.sh") in
   OS.Cmd.(run c)
 
-let silence () = Jupyter_notebook.clear_output ()
+
+let quiet_owl () =
+  let c = "#remove_printer Dense.Ndarray.Generic.pp_dsnda;;" in
+  c
+  |> Lexing.from_string
+  |> !Toploop.parse_toplevel_phrase
+  |> Toploop.execute_phrase true Format.err_formatter
+  |> ignore
+
+
+let hooting_owl () =
+  let c = "#install_printer Dense.Ndarray.Generic.pp_dsnda;;" in
+  c
+  |> Lexing.from_string
+  |> !Toploop.parse_toplevel_phrase
+  |> Toploop.execute_phrase true Format.err_formatter
+  |> ignore
+
 
 let print_msg s =
   Jupyter_notebook.printf "%s" s;

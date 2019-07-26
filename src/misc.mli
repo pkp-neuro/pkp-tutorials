@@ -7,14 +7,13 @@ open Owl
     and run [#require "pkp"] again. *)
 val upgrade : unit -> (unit, [> Rresult.R.msg ]) Bos.OS.result
 
+val quiet_owl: unit -> unit
+val hooting_owl: unit -> unit
+
 (** {1 Interact with the notebook} *)
 
 (** Prints a message *)
 val print_msg : string -> unit
-
-(** Add [let _ = Pkp.Misc.silence ()] at the end of a cell so that
-    its output gets cleared right after execution. *)
-val silence : unit -> unit
 
 (** [time_indicator dt] returns a function to which you can
     pass the current discrete time index t whenever you want
