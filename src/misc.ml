@@ -1,5 +1,10 @@
 open Owl
 
+let upgrade () =
+  let open Bos in
+  let c = Cmd.(v "sh" % "/home/opam/update.sh") in
+  OS.Cmd.(run c)
+
 let silence () = Jupyter_notebook.clear_output ()
 
 let print_msg s =

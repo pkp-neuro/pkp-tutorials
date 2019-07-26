@@ -1,4 +1,11 @@
+(** Miscellaneous functions *)
+
 open Owl
+
+(** Run this command within your Jupyter notebook to update to the latest
+    version of the Pkp library. Do not forget to restart your kernel afterwards,
+    and run [#require "pkp"] again. *)
+val upgrade : unit -> (unit, [> Rresult.R.msg ]) Bos.OS.result
 
 (** {1 Interact with the notebook} *)
 
@@ -20,9 +27,11 @@ val how_long : (unit -> 'a) -> 'a * float
 
 (** {1 Signals} *)
 
-(** Generates a unit-variance Ornstein-Uhlenbeck process with characteristic 
+(** Generates a unit-variance Ornstein-Uhlenbeck process with characteristic
     time constant [tau], over a [duration] with sampling resolution [dt]. *)
 val ou_process : tau:float -> dt:float -> duration:float -> Mat.mat
+
+(** {1 Memoization} *)
 
 val memoize : ('a -> 'b) -> 'a -> 'b
 val memoize_rec : (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
