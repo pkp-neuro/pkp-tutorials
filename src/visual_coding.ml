@@ -148,4 +148,4 @@ let default_callback () =
       iter
       (mean !cost_history);
     Jupyter_notebook.display_formatter ~display_id:text_id "text/html" |> ignore;
-    if iter mod 10 = 0 then plot_bases ~display_id:img_id 10 b
+    if iter mod 100 = 0 then plot_bases ~display_id:img_id 10 b
