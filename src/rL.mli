@@ -30,18 +30,19 @@ module type Mission = sig
   (** An empty board -- cf [board] type above. *)
   val empty_board : board
 
-  (** The mean of a list of numbers *)
+  (** The mean of a list of numbers. Hint: use [List.fold_left]. *)
   val mean : float list -> float
 
   (** For a list of pairs [[ (a1, b1); (a2, b2); ... ]],
       return the pair that has the largest b value.
-      Hint: use List.fold_left *)
+      Hint: use [List.fold_left]. *)
   val max_pair_list : ('a * float) list -> 'a * float
 
   (** The (matrix) transpose of a board *)
   val transpose : board -> board
 
-  (** Check whether a board is full -- i.e. that here is no single [None] element in it. *)
+  (** Check whether a board is full -- i.e. that here is no single [None] element in it.
+      Hint: use [Array.mem]. *)
   val is_full : board -> bool
 
   (** [play_game ?display (player1, player2)] should implement a loop that
