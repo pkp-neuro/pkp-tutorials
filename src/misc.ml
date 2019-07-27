@@ -29,14 +29,22 @@ let print_msg s =
   Jupyter_notebook.display_formatter "text/plain" |> ignore
 
 
-let time_indicator dt =
+let info_printer () =
   Jupyter_notebook.clear_output ();
   let id = Jupyter_notebook.display_formatter "text/html" in
-  fun t ->
-    Jupyter_notebook.printf
-      "<table><tr><td>time</td><td>%5.3f</td></tr></table>%!"
-      (dt *. float t);
+  fun s ->
+    Jupyter_notebook.printf "<table><tr><td>%s</td></tr></table>%!" s;
     Jupyter_notebook.display_formatter ~display_id:id "text/html" |> ignore
+
+
+let with_indicator iteri_fun =
+  Jupyter_notebook.clear_output ();
+  let id = Jupyter_notebook.display_formatter "text/html" in
+  fun f ->
+    iteri_fun (fun i z ->
+        Jupyter_notebook.printf "<table><tr><td>index</td><td>%09i</td></tr></table>%!" i;
+        Jupyter_notebook.display_formatter ~display_id:id "text/html" |> ignore;
+        f i z)
 
 
 let how_long f =

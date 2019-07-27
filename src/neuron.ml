@@ -20,9 +20,8 @@ module HH = struct
 
   type prms =
     { cm : float
-    ; vt : float
     ; e_leak : float
-    ; g_leak_max : float
+    ; g_leak : float
     ; g_na_max : float
     ; g_k_max : float
     ; e_na : float
@@ -32,38 +31,38 @@ module HH = struct
     ; n_gate : gate
     }
 
+  (* all in standard units (F, S, V) *)
   let default_prms =
-    let cm = 1E-6 in
-    let vt = -60. in
-    let e_leak = -70.0 in
-    let g_leak_max = 1E-4 in
-    let g_na_max = 50E-3 in
-    let g_k_max = 5E-3 in
-    let e_na = 50.0 in
-    let e_k = -90.0 in
+    let cm = 100E-12 in
+    let g_leak = 30E-9 in
+    let g_na_max = 12E-6 in
+    let g_k_max = 3.6E-6 in
+    let e_leak = -60E-3 in
+    let e_na = 45E-3 in
+    let e_k = -82E-3 in
     let m_gate =
       let alpha vm =
-        let dv = vm -. vt -. 13. in
-        -320.0 *. dv /. (exp (-.dv /. 4.) -. 1.)
+        let dv = -.vm -. 45E-3 in
+        1E5 *. dv /. (exp (100. *. dv) -. 1.)
       and beta vm =
-        let dv = vm -. vt -. 40. in
-        280. *. dv /. (exp (dv /. 5.) -. 1.)
+        let dv = -.vm -. 70E-3 in
+        4E3 *. exp (dv /. 0.018)
       in
       { alpha; beta }
     in
     let h_gate =
-      let alpha vm = 128.0 *. exp (-.(vm -. vt -. 17.) /. 18.)
-      and beta vm = 4000. /. (1. +. exp (-.(vm -. vt -. 40.) /. 5.)) in
+      let alpha vm = 70.0 *. exp (50. *. (-.vm -. 70E-3))
+      and beta vm = 1E3 /. (1. +. exp (100. *. (-.vm -. 40E-3))) in
       { alpha; beta }
     in
     let n_gate =
       let alpha vm =
-        let dv = vm -. vt -. 15. in
-        -32.0 *. dv /. (exp (-.dv /. 5.) -. 1.)
-      and beta vm = 500. *. exp (-.(vm -. vt -. 10.) /. 40.) in
+        let dv = -.vm -. 60E-3 in
+        1E4 *. dv /. (exp (100. *. dv) -. 1.)
+      and beta vm = 125. *. exp ((-.vm -. 70E-3) /. 80E-3) in
       { alpha; beta }
     in
-    { cm; vt; e_leak; g_leak_max; g_na_max; g_k_max; e_na; e_k; m_gate; n_gate; h_gate }
+    { cm; e_leak; g_leak; g_na_max; g_k_max; e_na; e_k; m_gate; n_gate; h_gate }
 
 
   let simulate ~prms ~duration input =
@@ -80,10 +79,10 @@ module HH = struct
       let bh = prms.h_gate.beta vm in
       let bn = prms.n_gate.beta vm in
       Mat.of_array
-        [| ((prms.g_leak_max *. (prms.e_leak -. vm))
+        [| ((prms.g_leak *. (prms.e_leak -. vm))
            +. (prms.g_na_max *. m *. m *. m *. h *. (prms.e_na -. vm))
            +. (prms.g_k_max *. n *. n *. n *. n *. (prms.e_k -. vm))
-           +. input t)
+           +. if t > 0. then input t else 0.)
            /. prms.cm
          ; (am *. (1. -. m)) -. (bm *. m)
          ; (ah *. (1. -. h)) -. (bh *. h)
@@ -92,9 +91,15 @@ module HH = struct
         1
         (-1)
     in
-    let t_spec = Owl_ode.Types.(T1 { t0 = 0.; duration; dt = 1E-5 }) in
+    (* start at -0.2s to make sure we reach steady state before t=0.0 *)
+    let t_spec =
+      let burn_in = 0.2 in
+      let duration = duration +. burn_in in
+      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-5 })
+    in
+    (* a sensible initial condition *)
     let x0 =
-      let vm = -70. in
+      let vm = -70E-3 in
       Mat.of_array
         [| vm
          ; steady_state prms.m_gate vm
@@ -104,26 +109,38 @@ module HH = struct
         1
         (-1)
     in
-    Ode.odeint (module Owl_ode_sundials.Owl_Cvode) dxdt x0 t_spec ()
+    let solver = Owl_ode_sundials.cvode ~stiff:true ~relative_tol:1E-5 ~abs_tol:1E-8 in
+    let t, state = Ode.odeint solver dxdt x0 t_spec () in
+    let ids = Mat.filter (fun t -> t >= 0.) t |> Array.to_list in
+    let t = Mat.get_fancy [ L ids; R [] ] t in
+    let state = Mat.get_fancy [ L ids; R [] ] state in
+    let state = Mat.((1E3 $* col state 0) @|| get_slice [ []; [ 1; -1 ] ] state) in
+    t, state
 end
 
 module LIF = struct
   type prms =
-    { tau : float (** membrane time constant *)
-    ; v_rest : float (** resting potential *)
-    ; v_thresh : float (** spiking threshold *)
-    ; v_reset : float (** reset potential after spike *)
-    ; dt : float (** integration time step *)
+    { cm : float
+    ; g_leak : float
+    ; vm_rest : float
+    ; vm_thresh : float
+    ; vm_reset : float
+    ; dt : float
     }
 
   let default_prms =
-    { tau = 20E-3; v_rest = -70.0; v_thresh = -60.0; v_reset = -70.0; dt = 1E-4 }
+    let cm = 100E-12 in
+    let g_leak = 30E-9 in
+    let vm_rest = -70E-3 in
+    let vm_thresh = -60E-3 in
+    let vm_reset = -80E-3 in
+    { cm; g_leak; vm_rest; vm_thresh; vm_reset; dt = 1E-4 }
 
 
   let simulate ~prms ~duration input =
     let n = int_of_float (duration /. prms.dt) in
     let t = Array.init n (fun t -> prms.dt *. float t) in
-    let u = ref prms.v_rest in
+    let u = ref prms.vm_rest in
     let spike = ref false in
     let us =
       Array.map
@@ -131,14 +148,34 @@ module LIF = struct
           if !spike
           then (
             spike := false;
-            u := prms.v_reset);
-          u := !u +. (prms.dt /. prms.tau *. (prms.v_rest -. !u +. input t));
-          if !u > prms.v_thresh
+            u := prms.vm_reset);
+          let total_current = (prms.g_leak *. (prms.vm_rest -. !u)) +. input t in
+          u := !u +. (prms.dt /. prms.cm *. total_current);
+          if !u > prms.vm_thresh
           then (
             spike := true;
             u := 0.);
-          !u)
+          1E3 *. !u)
         t
     in
     Mat.of_array t (-1) 1, Mat.of_array us (-1) 1
 end
+
+let count_spikes ~after (t, vm) =
+  if Mat.col_num t > 1 || Mat.row_num t <> Mat.row_num vm
+  then
+    failwith
+      "[count_spikes ~after (t, vm)]: t must be a column vector, with the same number \
+       of rows as vm";
+  let n = Mat.row_num t in
+  let rec count i c state =
+    if i = n
+    then c
+    else if Mat.get t i 0 < after
+    then count (i + 1) c state
+    else (
+      let new_state = Mat.get vm i 0 > -20.0 in
+      let c = if (not state) && new_state then c + 1 else c in
+      count (i + 1) c new_state)
+  in
+  count 0 0 false

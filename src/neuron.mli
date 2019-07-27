@@ -4,8 +4,8 @@ open Owl
 module HH : sig
   (** type of voltage-dependent gate *)
   type gate =
-    { alpha : float -> float
-    ; beta : float -> float
+    { alpha : float -> float (** opening rate (1/s) *)
+    ; beta : float -> float (** closing rate (1/s)*)
     }
 
   (** Steady state activation of a gate at a given Vm *)
@@ -16,13 +16,12 @@ module HH : sig
 
   type prms =
     { cm : float (** membrane capacitance (in F) *)
-    ; vt : float (** intrinsic spiking threshold (in mV) *)
-    ; e_leak : float (** leak reversal potential (in mV) *)
-    ; g_leak_max : float (** peak leak conductance (in S) *)
+    ; e_leak : float (** leak reversal potential (in V) *)
+    ; g_leak : float (** leak conductance (in S) *)
     ; g_na_max : float (** peak conductance (in S) for sodium channels *)
     ; g_k_max : float (** peak conductance (in S) for potassium channels *)
-    ; e_na : float (** reversal potential (in mV) for sodium channels *)
-    ; e_k : float (** reversal potential (in mV) for potassium channels *)
+    ; e_na : float (** reversal potential (in V) for sodium channels *)
+    ; e_k : float (** reversal potential (in V) for potassium channels *)
     ; m_gate : gate (** rate constants for the sodium "m" gate *)
     ; h_gate : gate (** rate constants for the sodium "h" gate *)
     ; n_gate : gate (** rate constants for the potassium "n" gate *)
@@ -44,13 +43,20 @@ end
 (** Leaky integrate-and-fire (LIF) model *)
 module LIF : sig
   type prms =
-    { tau : float (** membrane time constant *)
-    ; v_rest : float (** resting potential *)
-    ; v_thresh : float (** spiking threshold *)
-    ; v_reset : float (** reset potential after spike *)
+    { cm : float (** membrane capacitance (in F) *)
+    ; g_leak : float (** leak conductance (in S) *)
+    ; vm_rest : float (** resting potential (in V) *)
+    ; vm_thresh : float (** spiking threshold (in V) *)
+    ; vm_reset : float (** reset potential after spike (in V) *)
     ; dt : float (** integration time step *)
     }
 
   val default_prms : prms
   val simulate : prms:prms -> duration:float -> (float -> float) -> Mat.mat * Mat.mat
 end
+
+(** [count_spikes ~after:2.0 (t, vm)] counts then number of action potentials that
+    occur in the membrane potential time series (t, vm) after 2 seconds and
+    until the end of the time series. [t] must be a column vector, with the same
+    number of rows as [vm]; if [vm] has multiple columns, only the first one is considered. *)
+val count_spikes : after:float -> Mat.mat * Mat.mat -> int
