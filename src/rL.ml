@@ -132,13 +132,13 @@ module Make (M : Mission) = struct
     { play; mark }
 
 
-  let display_in_notebook ~display_id =
+  let to_html =
     let to_string = function
       | Some O -> "<td>O</td>"
       | Some X -> "<td>X</td>"
       | None -> "<td>_</td>"
     in
-    fun b ->
+    fun ~caption b ->
       let s =
         b
         |> Array.map (fun r ->
@@ -147,20 +147,57 @@ module Make (M : Mission) = struct
         |> List.map (fun v -> "<tr>" ^ v ^ "</tr>")
         |> String.concat ""
       in
-      Jupyter_notebook.printf
-        "<div style=\"text-align: center; margin-top:1em;\"><table style=\"border: 1px \
-         solid; margin-left: auto; margin-right:auto;\">%s</table></div>%!"
-        s;
+      Printf.sprintf
+        "<div style=\"float: left; text-align: center; margin-top:1em;\"><table \
+         style=\"border: 1px solid; margin-left: auto; \
+         margin-right:auto;\"><caption style:\"text-align:center\";>%s</caption>%s</table></div>"
+        caption
+        s
+
+
+  let me mark =
+    let display_id = Jupyter_notebook.display "text/html" "" in
+    let play board =
+      let choices = choices mark board |> Array.of_list in
+      let _, html =
+        Array.fold_left
+          (fun (i, accu) b -> i + 1, accu ^ to_html ~caption:(string_of_int i) b)
+          (0, "")
+          choices
+      in
+      Jupyter_notebook.printf "<div>%s</div>" html;
       Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore;
-      Unix.sleepf 0.1
+      let rec choose () =
+        let my_choice = ref min_int in
+        Jupyter_comm.Stdin.read_line_async
+          ~recv:(fun s -> my_choice := int_of_string s)
+          "";
+        while !my_choice = min_int do
+          Unix.sleepf 0.1
+        done;
+        try choices.(!my_choice) with
+        | _ -> choose ()
+      in
+      choose ()
+    in
+    { play; mark }
+
+
+  let display_in_notebook ?(caption = "") ~display_id b =
+    Jupyter_notebook.printf "%s" (to_html ~caption b);
+    Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore
 
 
   let play ?(display = true) (player1, player2) =
     if player1.mark = player2.mark then failwith "Players can't play with the same mark.";
     let display =
       if display
-      then
-        Some (display_in_notebook ~display_id:(Jupyter_notebook.display "text/html" ""))
+      then (
+        let display_id = Jupyter_notebook.display "text/html" "" in
+        Some
+          (fun b ->
+            display_in_notebook ~display_id b;
+            Unix.sleepf 0.1))
       else None
     in
     let final_board = play_game ?display ~finished (player1, player2) in

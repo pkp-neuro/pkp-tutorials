@@ -67,6 +67,9 @@ module Make (M : Mission) : sig
       all available moves. Shouldn't be too hard to beat! *)
   val random : mark -> player
 
+  (** You! *)
+  val me : mark -> player
+
   (** Automatically play a game between two players (A, B); player A starts.
       The game is displayed in the notebook by default, but you can switch this off
       using [~display:false]. Returns the game outcome, which is either the winner
