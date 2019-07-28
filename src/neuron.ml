@@ -68,6 +68,7 @@ module HH = struct
   let simulate ~prms ~duration input =
     let open Owl_ode in
     let dxdt x t =
+      Gc.minor ();
       let vm = Mat.get x 0 0 in
       let m = Mat.get x 0 1 in
       let h = Mat.get x 0 2 in
@@ -109,7 +110,7 @@ module HH = struct
         1
         (-1)
     in
-    let solver = Owl_ode_sundials.cvode ~stiff:true ~relative_tol:1E-5 ~abs_tol:1E-8 in
+    let solver = Owl_ode.Native.D.rk45 ~tol:1E-6 ~dtmax:1E-3 in
     let t, state = Ode.odeint solver dxdt x0 t_spec () in
     let ids = Mat.filter (fun t -> t >= 0.) t |> Array.to_list in
     let t = Mat.get_fancy [ L ids; R [] ] t in

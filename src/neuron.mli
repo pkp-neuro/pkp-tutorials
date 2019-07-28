@@ -35,8 +35,8 @@ module HH : sig
       @return [(time, state)] where [time] is a column vector of times
       and [state] is a matrix containing the four state variables of the
       model at those same times (thus [time] and [state] have the same number of rows).
-      The first column is the membrane potential, the other columns are the gate variables
-      [m, h, n] in this order. *)
+      The first column is the membrane potential (in mV), the other columns are
+      the gate variables [m, h, n] in this order. *)
   val simulate : prms:prms -> duration:float -> (float -> float) -> Mat.mat * Mat.mat
 end
 
