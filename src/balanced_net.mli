@@ -93,8 +93,10 @@ type network =
   ; connections : connections array list
   }
 
-(** [simulate net duration] simulates the dynamics of [net] for [duration] seconds *)
-val simulate : duration:float -> network -> unit
+(** [simulate net duration] simulates the dynamics of [net] for [duration] seconds;
+    optional parameter [display] (default: [false]) can be set to true to
+    display simulation progress. *)
+val simulate : ?display:bool -> duration:float -> network -> unit
 
 (** {1 Dealing with spike trains} *)
 

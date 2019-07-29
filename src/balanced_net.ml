@@ -213,7 +213,9 @@ type network =
   ; connections : connections array list
   }
 
-let simulate ~duration net =
+let simulate ?(display = false) ~duration net =
+  let info = if display then Some (Misc.info_printer ()) else None in
+  let last_t_info = ref 0. in
   (* make sure to reset all neurons first *)
   List.iter (Array.iter reset) net.neurons;
   (* set the connections *)
@@ -226,8 +228,19 @@ let simulate ~duration net =
       let queue = List.fold_left (Array.fold_left kickoff) queue net.neurons in
       iter queue
     | (t, _) :: _ when t > duration ->
+      (match info with
+      | Some ip -> ip (string_of_float duration)
+      | None -> ());
       () (* finish with the first spike after goes past [duration] *)
     | (t, label) :: rest ->
+      (* display time progress if applicable *)
+      (match info with
+      | Some ip ->
+        if t > !last_t_info +. 0.1
+        then (
+          ip (string_of_float t);
+          last_t_info := t)
+      | None -> ());
       (* process this spike *)
       (match label with
       | `poisson x ->
