@@ -202,8 +202,7 @@ module HH = struct
       |> Array.of_list
       |> fun x -> Mat.of_array x 1 (-1)
     in
-    let solver = Owl_ode_sundials.cvode ~stiff:true ~relative_tol:1E-2 ~abs_tol:0. in
-    (* let solver = Owl_ode.Native.D.euler in *)
+    let solver = Owl_ode_sundials.cvode ~stiff:true ~relative_tol:1E-3 ~abs_tol:0. in
     let t, state = Ode.odeint solver dxdt x0 t_spec () in
     let ids = Mat.filter (fun t -> t >= 0.) t |> Array.to_list in
     let t = Mat.get_fancy [ L ids; R [] ] t in

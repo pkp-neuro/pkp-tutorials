@@ -48,7 +48,8 @@ module HH : sig
       and [state] is a matrix containing the four state variables of the
       model at those same times (thus [time] and [state] have the same number of rows).
       The first column is the membrane potential (in mV), the other columns are
-      the gate variables [m, h, n] in this order. *)
+      the gate variables [m, h, n] in this order, optionally followed by the [a] and [b]
+      gates in the case of the Connor-Stevens model. *)
   val simulate : prms:prms -> duration:float -> (float -> float) -> Mat.mat * Mat.mat
 end
 
