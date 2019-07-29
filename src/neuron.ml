@@ -18,6 +18,13 @@ module HH = struct
     1.0 /. (a +. b)
 
 
+  type a_current_prms =
+    { g_a_max : float
+    ; e_a : float
+    ; a_gate : gate
+    ; b_gate : gate
+    }
+
   type prms =
     { cm : float
     ; e_leak : float
@@ -29,17 +36,11 @@ module HH = struct
     ; m_gate : gate
     ; h_gate : gate
     ; n_gate : gate
+    ; a_current : a_current_prms option
     }
 
   (* all in standard units (F, S, V) *)
   let default_prms =
-    let cm = 100E-12 in
-    let g_leak = 30E-9 in
-    let g_na_max = 12E-6 in
-    let g_k_max = 3.6E-6 in
-    let e_leak = -60E-3 in
-    let e_na = 45E-3 in
-    let e_k = -82E-3 in
     let m_gate =
       let alpha vm =
         let dv = -.vm -. 45E-3 in
@@ -62,7 +63,81 @@ module HH = struct
       and beta vm = 125. *. exp ((-.vm -. 70E-3) /. 80E-3) in
       { alpha; beta }
     in
-    { cm; e_leak; g_leak; g_na_max; g_k_max; e_na; e_k; m_gate; n_gate; h_gate }
+    { cm = 100E-12
+    ; g_leak = 30E-9
+    ; g_na_max = 12E-6
+    ; g_k_max = 3.6E-6
+    ; e_leak = -60E-3
+    ; e_na = 45E-3
+    ; e_k = -82E-3
+    ; m_gate
+    ; n_gate
+    ; h_gate
+    ; a_current = None
+    }
+
+
+  let connor_stevens =
+    let m_gate =
+      let alpha vm = 3.80E5 *. (vm +. 0.0297) /. (1.0 -. exp (-100. *. (vm +. 0.0297)))
+      and beta vm = 1.52E4 *. exp (-55.6 *. (vm +. 0.0547)) in
+      { alpha; beta }
+    in
+    let h_gate =
+      let alpha vm = 266.0 *. exp (-50.0 *. (vm +. 0.048))
+      and beta vm = 3800.0 /. (1. +. exp (-100.0 *. (vm +. 0.018))) in
+      { alpha; beta }
+    in
+    let n_gate =
+      let alpha vm = 2E4 *. (vm +. 0.0457) /. (1.0 -. exp (-100.0 *. (vm +. 0.0457)))
+      and beta vm = 250.0 *. exp (-12.5 *. (vm +. 0.0557)) in
+      { alpha; beta }
+    in
+    let a_gate =
+      let alpha vm =
+        let inf =
+          (0.0761
+          *. exp (31.4 *. (vm +. 0.09422))
+          /. (1.0 +. exp (34.6 *. (vm +. 0.00117))))
+          ** (1.0 /. 3.0)
+        and tau = 0.3632E-3 +. (1.158E-3 /. (1.0 +. exp (49.7 *. (vm +. 0.05596)))) in
+        inf /. tau
+      and beta vm =
+        let inf =
+          (0.0761
+          *. exp (31.4 *. (vm +. 0.09422))
+          /. (1.0 +. exp (34.6 *. (vm +. 0.00117))))
+          ** (1.0 /. 3.0)
+        and tau = 0.3632E-3 +. (1.158E-3 /. (1.0 +. exp (49.7 *. (vm +. 0.05596)))) in
+        (1. -. inf) /. tau
+      in
+      { alpha; beta }
+    in
+    let b_gate =
+      let alpha vm =
+        let inf = (1. /. (1.0 +. exp (68.8 *. (vm +. 0.0533)))) ** 4.0
+        and tau = 1.24E-3 +. (2.678E-3 /. (1.0 +. exp (62.4 *. (vm +. 0.050)))) in
+        inf /. tau
+      and beta vm =
+        let inf = (1. /. (1.0 +. exp (68.8 *. (vm +. 0.0533)))) ** 4.0
+        and tau = 1.24E-3 +. (2.678E-3 /. (1.0 +. exp (62.4 *. (vm +. 0.050)))) in
+        (1. -. inf) /. tau
+      in
+      { alpha; beta }
+    in
+    let a_current = Some { g_a_max = 4.77E-6; e_a = -75E-3; a_gate; b_gate } in
+    { cm = 100E-12
+    ; g_leak = 30E-9
+    ; g_na_max = 12E-6
+    ; g_k_max = 2E-6
+    ; e_leak = -17E-3
+    ; e_na = 55E-3
+    ; e_k = -72E-3
+    ; m_gate
+    ; n_gate
+    ; h_gate
+    ; a_current
+    }
 
 
   let simulate ~prms ~duration input =
@@ -79,38 +154,56 @@ module HH = struct
       let bm = prms.m_gate.beta vm in
       let bh = prms.h_gate.beta vm in
       let bn = prms.n_gate.beta vm in
-      Mat.of_array
-        [| ((prms.g_leak *. (prms.e_leak -. vm))
-           +. (prms.g_na_max *. m *. m *. m *. h *. (prms.e_na -. vm))
-           +. (prms.g_k_max *. n *. n *. n *. n *. (prms.e_k -. vm))
-           +. if t > 0. then input t else 0.)
-           /. prms.cm
-         ; (am *. (1. -. m)) -. (bm *. m)
-         ; (ah *. (1. -. h)) -. (bh *. h)
-         ; (an *. (1. -. n)) -. (bn *. n)
-        |]
-        1
-        (-1)
+      let a_current, dx_dt_a =
+        match prms.a_current with
+        | None -> 0., []
+        | Some z ->
+          let a = Mat.get x 0 4 in
+          let b = Mat.get x 0 5 in
+          let aa = z.a_gate.alpha vm
+          and ba = z.a_gate.beta vm
+          and ab = z.b_gate.alpha vm
+          and bb = z.b_gate.beta vm in
+          ( z.g_a_max *. a *. a *. a *. b *. (z.e_a -. vm)
+          , [ (aa *. (1. -. a)) -. (ba *. a); (ab *. (1. -. b)) -. (bb *. b) ] )
+      in
+      [ ((prms.g_leak *. (prms.e_leak -. vm))
+        +. (prms.g_na_max *. m *. m *. m *. h *. (prms.e_na -. vm))
+        +. (prms.g_k_max *. n *. n *. n *. n *. (prms.e_k -. vm))
+        +. a_current
+        +. if t > 0. then input t else 0.)
+        /. prms.cm
+      ; (am *. (1. -. m)) -. (bm *. m)
+      ; (ah *. (1. -. h)) -. (bh *. h)
+      ; (an *. (1. -. n)) -. (bn *. n)
+      ]
+      @ dx_dt_a
+      |> Array.of_list
+      |> fun x -> Mat.of_array x 1 (-1)
     in
     (* start at -0.2s to make sure we reach steady state before t=0.0 *)
     let t_spec =
       let burn_in = 0.2 in
       let duration = duration +. burn_in in
-      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-5 })
+      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-6 })
     in
     (* a sensible initial condition *)
     let x0 =
       let vm = -70E-3 in
-      Mat.of_array
-        [| vm
-         ; steady_state prms.m_gate vm
-         ; steady_state prms.h_gate vm
-         ; steady_state prms.n_gate vm
-        |]
-        1
-        (-1)
+      ([ vm
+       ; steady_state prms.m_gate vm
+       ; steady_state prms.h_gate vm
+       ; steady_state prms.n_gate vm
+       ]
+      @
+      match prms.a_current with
+      | None -> []
+      | Some z -> [ steady_state z.a_gate vm; steady_state z.b_gate vm ])
+      |> Array.of_list
+      |> fun x -> Mat.of_array x 1 (-1)
     in
-    let solver = Owl_ode.Native.D.rk45 ~tol:1E-6 ~dtmax:1E-3 in
+    let solver = Owl_ode_sundials.cvode ~stiff:true ~relative_tol:1E-2 ~abs_tol:0. in
+    (* let solver = Owl_ode.Native.D.euler in *)
     let t, state = Ode.odeint solver dxdt x0 t_spec () in
     let ids = Mat.filter (fun t -> t >= 0.) t |> Array.to_list in
     let t = Mat.get_fancy [ L ids; R [] ] t in

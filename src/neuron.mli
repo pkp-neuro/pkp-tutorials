@@ -14,6 +14,14 @@ module HH : sig
   (** Time constant at which relaxation to steady-state occurs, for a given Vm *)
   val time_constant : gate -> float -> float
 
+  (** Parameters for the A-current of the Connor-Stevens model *)
+  type a_current_prms =
+    { g_a_max : float
+    ; e_a : float
+    ; a_gate : gate
+    ; b_gate : gate
+    }
+
   type prms =
     { cm : float (** membrane capacitance (in F) *)
     ; e_leak : float (** leak reversal potential (in V) *)
@@ -25,10 +33,14 @@ module HH : sig
     ; m_gate : gate (** rate constants for the sodium "m" gate *)
     ; h_gate : gate (** rate constants for the sodium "h" gate *)
     ; n_gate : gate (** rate constants for the potassium "n" gate *)
+    ; a_current : a_current_prms option (** optional A-current parameters *)
     }
 
-  (** A good set of default parameters *)
+  (** A good set of default parameters ─ those found in the original HH paper *)
   val default_prms : prms
+
+  (** A better model for cortical cells: the Connor-Stevens model *)
+  val connor_stevens : prms
 
   (** Simulates the model for a certain duration, with a certain input current
       (provided as a function of time in seconds).
