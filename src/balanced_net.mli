@@ -41,7 +41,7 @@ type neuron
     @param tau_refr absolute refractory time constant (default: 5E-3 s)
     @param threshold firing threshold (default: 1.0)
     @param axon_delay (default: uniformly drawn at random between 0 and 2E-3 s)
-    @param log_voltage whether the membrane potential should be loged (e.g. for plotting later) *)
+    @param log_voltage whether the membrane potential should be loged (e.g. for plotting later; default: [true]) *)
 val lif
   :  ?tau:float
   -> ?tau_refr:float
@@ -112,3 +112,10 @@ val plottable_voltage : ?style:string -> duration:float -> neuron -> Gp.item
 (** Constructs a readily-plottable [Gp.item] spike train for a given neuron.
     Spikes are displayed as bars going from 0 to some tunable height. *)
 val plottable_spikes : ?bar_height:float -> ?style:string -> neuron -> Gp.item
+
+(** Discard the first [first] seconds of a spike train *)
+val discard : first:float -> float list -> float list
+
+(** Estimates the Fano factor from a long spike train; spikes are counted
+    in a window of duration [window] seconds. *)
+val fano_factor : window:float -> float list -> float

@@ -294,3 +294,26 @@ let plottable_spikes ?(bar_height = 5.) ?(style = "lc 8") (x : neuron) =
     |> Mat.of_arrays
   in
   Gp.item (A data) ~using:"1:2:3:4" ~style:("vectors nohead " ^ style)
+
+
+let discard ~first = List.filter (fun t -> t > first)
+
+let fano_factor ~window spikes =
+  let slide = window /. 4. in
+  let t0 = List.fold_left min max_float spikes
+  and t1 = List.fold_left max min_float spikes in
+  let rec get_counts accu t =
+    if t > t1
+    then accu
+    else (
+      let lb = t
+      and ub = t +. window in
+      let c = spikes |> List.filter (fun s -> s >= lb && s < ub) |> List.length in
+      get_counts (c :: accu) (t +. slide))
+  in
+  match get_counts [] t0 with
+  | [] -> 1.0 (* convention: default to one if empty *)
+  | cs ->
+    let cs = cs |> List.map float |> Array.of_list in
+    let cs = Mat.of_array cs 1 (-1) in
+    Mat.(var' cs /. mean' cs)
