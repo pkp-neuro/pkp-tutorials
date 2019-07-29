@@ -141,9 +141,9 @@ module HH = struct
 
 
   let simulate ~prms ~duration input =
+    Gc.full_major ();
     let open Owl_ode in
     let dxdt x t =
-      Gc.minor ();
       let vm = Mat.get x 0 0 in
       let m = Mat.get x 0 1 in
       let h = Mat.get x 0 2 in
@@ -156,7 +156,7 @@ module HH = struct
       let bn = prms.n_gate.beta vm in
       let a_current, dx_dt_a =
         match prms.a_current with
-        | None -> 0., []
+        | None -> 0., [||]
         | Some z ->
           let a = Mat.get x 0 4 in
           let b = Mat.get x 0 5 in
@@ -165,27 +165,27 @@ module HH = struct
           and ab = z.b_gate.alpha vm
           and bb = z.b_gate.beta vm in
           ( z.g_a_max *. a *. a *. a *. b *. (z.e_a -. vm)
-          , [ (aa *. (1. -. a)) -. (ba *. a); (ab *. (1. -. b)) -. (bb *. b) ] )
+          , [| (aa *. (1. -. a)) -. (ba *. a); (ab *. (1. -. b)) -. (bb *. b) |] )
       in
-      [ ((prms.g_leak *. (prms.e_leak -. vm))
-        +. (prms.g_na_max *. m *. m *. m *. h *. (prms.e_na -. vm))
-        +. (prms.g_k_max *. n *. n *. n *. n *. (prms.e_k -. vm))
-        +. a_current
-        +. if t > 0. then input t else 0.)
-        /. prms.cm
-      ; (am *. (1. -. m)) -. (bm *. m)
-      ; (ah *. (1. -. h)) -. (bh *. h)
-      ; (an *. (1. -. n)) -. (bn *. n)
-      ]
-      @ dx_dt_a
-      |> Array.of_list
+      Array.append
+        [| ((prms.g_leak *. (prms.e_leak -. vm))
+           +. (prms.g_na_max *. m *. m *. m *. h *. (prms.e_na -. vm))
+           +. (prms.g_k_max *. n *. n *. n *. n *. (prms.e_k -. vm))
+           +. a_current
+           +. if t > 0. then input t else 0.)
+           /. prms.cm
+         ; (am *. (1. -. m)) -. (bm *. m)
+         ; (ah *. (1. -. h)) -. (bh *. h)
+         ; (an *. (1. -. n)) -. (bn *. n)
+        |]
+        dx_dt_a
       |> fun x -> Mat.of_array x 1 (-1)
     in
     (* start at -0.2s to make sure we reach steady state before t=0.0 *)
     let t_spec =
       let burn_in = 0.2 in
       let duration = duration +. burn_in in
-      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-6 })
+      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-4 })
     in
     (* a sensible initial condition *)
     let x0 =
