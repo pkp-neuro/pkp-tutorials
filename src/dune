@@ -1,7 +1,7 @@
 (library
   (name pkp)
   (public_name pkp)
-  (modes byte native)
+  (modes byte)
   (libraries bos owl owl-lbfgs owl-ode owl-ode-sundials jupyter jupyter.notebook jupyter.comm juplot))
 
  

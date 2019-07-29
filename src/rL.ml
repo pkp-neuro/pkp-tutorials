@@ -39,6 +39,11 @@ end
 module Make (M : Mission) = struct
   open M
 
+  let _ =
+    if Array.length empty_board <> Array.length empty_board.(0)
+    then failwith "empty_board should be square"
+
+  let _ = if Array.length empty_board > 3 then failwith "don't event try n>3 :)"
   let full_of mark v = Array.fold_left (fun accu s -> accu && s = Some mark) true v
 
   (* check if [player] wins on any row *)
@@ -148,9 +153,9 @@ module Make (M : Mission) = struct
         |> String.concat ""
       in
       Printf.sprintf
-        "<div style=\"float: left; text-align: center; margin-top:1em;\"><table \
-         style=\"border: 1px solid; margin-left: auto; \
-         margin-right:auto;\"><caption style:\"text-align:center\";>%s</caption>%s</table></div>"
+        "<div style=\"float: left; text-align: center; margin-top:1em; margin-right:0.5em;\"><table \
+         style=\"border: 1px solid; margin-left: auto; margin-right:auto;\"><caption \
+         style=\"text-align:center\";>%s</caption>%s</table></div>"
         caption
         s
 
