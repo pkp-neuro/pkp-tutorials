@@ -185,7 +185,7 @@ module HH = struct
     let t_spec =
       let burn_in = 0.2 in
       let duration = duration +. burn_in in
-      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-4 })
+      Owl_ode.Types.(T1 { t0 = -.burn_in; duration; dt = 1E-5 })
     in
     (* a sensible initial condition *)
     let x0 =
