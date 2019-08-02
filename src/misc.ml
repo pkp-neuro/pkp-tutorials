@@ -88,3 +88,11 @@ let memoize_rec f_norec =
   let f = memoize (fun x -> f_norec !fref x) in
   fref := f;
   f
+
+
+let hist ~n_bins x =
+  let open Owl_stats in
+  let hist = histogram (`N n_bins) Mat.(to_array x) in
+  let bins = Mat.of_array hist.bins (-1) 1 |> Mat.get_slice [ [ 0; -2 ] ] in
+  let counts = Mat.of_array (Array.map float hist.counts) (-1) 1 in
+  Mat.(bins @|| counts)

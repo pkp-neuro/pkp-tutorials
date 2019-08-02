@@ -37,3 +37,10 @@ val ou_process : tau:float -> dt:float -> duration:float -> Mat.mat
 
 val memoize : ('a -> 'b) -> 'a -> 'b
 val memoize_rec : (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
+
+(** {1 Histograms} *)
+
+(** Computes a histogram given a matrix of numbers. Returns a matrix with two columns,
+    where the first column are the bins (x-axis) and the second column are the counts
+    (number of elements in the input matrix that fall within the corresponding bin) *)
+val hist : n_bins:int -> Mat.mat -> Mat.mat
