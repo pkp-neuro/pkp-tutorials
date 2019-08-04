@@ -24,27 +24,40 @@ let hooting_owl () =
   |> ignore
 
 
-let print_msg s =
-  Jupyter_notebook.printf "%s" s;
-  Jupyter_notebook.display_formatter "text/plain" |> ignore
+type placeholder = Jupyter_notebook.display_id
+
+let placeholder () = Jupyter_notebook.display "text/html" ""
+
+let print_msg ?ph s =
+  Jupyter_notebook.printf "%s%!" s;
+  Jupyter_notebook.display_formatter ?display_id:ph "text/html" |> ignore
 
 
-let info_printer () =
-  Jupyter_notebook.clear_output ();
-  let id = Jupyter_notebook.display_formatter "text/html" in
-  fun s ->
-    Jupyter_notebook.printf "<table><tr><td>%s</td></tr></table>%!" s;
-    Jupyter_notebook.display_formatter ~display_id:id "text/html" |> ignore
 
-
-let with_indicator iteri_fun =
-  Jupyter_notebook.clear_output ();
-  let id = Jupyter_notebook.display_formatter "text/html" in
+let with_indicator ?ph ?(description="index") iter_fun =
+  let display_id =
+    match ph with
+    | Some d -> d
+    | None -> placeholder ()
+  in
   fun f ->
-    iteri_fun (fun i z ->
-        Jupyter_notebook.printf "<table><tr><td>index</td><td>%09i</td></tr></table>%!" i;
-        Jupyter_notebook.display_formatter ~display_id:id "text/html" |> ignore;
-        f i z)
+    let i = ref 0 in
+    iter_fun (fun z ->
+        incr i;
+        Jupyter_notebook.printf "[%s] %i%!" description !i;
+        Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore;
+        f z)
+
+
+let average_over ?display n f =
+  Mat.init 1 n (fun k ->
+      (match display with
+      | Some (display_id, label) ->
+        Jupyter_notebook.printf "[%s] %05i / %05i" label k n;
+        Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore
+      | None -> ());
+      f k)
+  |> Mat.mean'
 
 
 let how_long f =
@@ -68,8 +81,6 @@ let ou_process ~tau ~dt ~duration =
   x
 
 
-(** simple function memoization; takes a function f, returns the
-    memoized version of it *)
 let memoize f =
   let table = Hashtbl.create 100 in
   fun x ->
@@ -80,15 +91,11 @@ let memoize f =
       y
 
 
-(** memoization for recursive functions; takes the non-recursive tail call function, 
-    and makes it a memoize recursive function;
-    e.g. memoize_rec (fun fib i -> if i<=1 then i else fib (i-1) + fib (i-2)) *)
 let memoize_rec f_norec =
   let fref = ref (fun _ -> assert false) in
   let f = memoize (fun x -> f_norec !fref x) in
   fref := f;
   f
-
 
 let hist ~n_bins x =
   let open Owl_stats in
