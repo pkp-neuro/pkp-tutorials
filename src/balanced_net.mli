@@ -68,7 +68,7 @@ type connections
 
 (** [all_to_all_connections from onto k w] creates a set of connections
     such that any neuron in the [from] population connects to all neurons in
-    the [post] population; all synaptic weights are set to [w] *)
+    the [onto] population; all synaptic weights are set to [w] *)
 val all_to_all_connections
   :  from:neuron array
   -> onto:neuron array
@@ -77,7 +77,7 @@ val all_to_all_connections
 
 (** [random_connections from onto k w] creates a set of random connections
     such that any neuron in the [from] population connects to exactly [k]
-    neurons randomly chosen (without replacement) from the [post] population;
+    neurons randomly chosen (without replacement) from the [onto] population;
     all synaptic weights are set to [w] *)
 val random_connections
   :  from:neuron array
