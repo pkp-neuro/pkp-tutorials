@@ -36,16 +36,21 @@ open Owl
 
 type neuron
 
-(** Creates a leaky integrate-and-fire (LIF) neuron;
+(** Creates a leaky integrate-and-fire (LIF) neuron; note that
+    the voltage units have been rescaled so that the resting potential is 0 and the
+    spike threshold is 1.
     @param tau membrane time constant (default: 20E-3 s)
     @param tau_refr absolute refractory time constant (default: 5E-3 s)
     @param threshold firing threshold (default: 1.0)
+    @param init_voltage initial value of the membrane potential at t=0 (default: 0.0)
     @param axon_delay (default: uniformly drawn at random between 0 and 2E-3 s)
     @param log_voltage whether the membrane potential should be loged (e.g. for plotting later; default: [true]) *)
 val lif
   :  ?tau:float
   -> ?tau_refr:float
   -> ?threshold:float
+  -> ?resting_potential:float
+  -> ?init_voltage:float
   -> ?axon_delay:float
   -> ?log_voltage:bool
   -> unit
@@ -73,7 +78,7 @@ val all_to_all_connections
   :  from:neuron array
   -> onto:neuron array
   -> w:float
-  -> connections array
+  -> connections
 
 (** [random_connections from onto k w] creates a set of random connections
     such that any neuron in the [from] population connects to exactly [k]
@@ -84,13 +89,13 @@ val random_connections
   -> onto:neuron array
   -> k:int
   -> w:float
-  -> connections array
+  -> connections
 
 (** {1 Event-based simulation of network dynamics} *)
 
 type network =
   { neurons : neuron array list
-  ; connections : connections array list
+  ; connections : connections list
   }
 
 (** [simulate net duration] simulates the dynamics of [net] for [duration] seconds;

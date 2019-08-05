@@ -23,7 +23,9 @@ module LIF = struct
     { tau_refr : float
     ; tau : float
     ; threshold : float
+    ; resting_potential : float
     ; axon_delay : float
+    ; init_voltage : float
     ; mutable spikes : float list
     ; mutable last_known_voltage : float * float
     ; mutable voltages : (float * float) list option
@@ -54,7 +56,7 @@ let reset = function
     let open LIF in
     x.targets <- [];
     x.spikes <- [];
-    x.last_known_voltage <- 0., 0.;
+    x.last_known_voltage <- 0., x.init_voltage;
     x.voltages
       <- (match x.voltages with
          | Some _ -> Some []
@@ -80,6 +82,8 @@ let lif
     ?(tau = 20E-3)
     ?(tau_refr = 5E-3)
     ?(threshold = 1.0)
+    ?(resting_potential = 0.0)
+    ?(init_voltage = 0.)
     ?axon_delay
     ?(log_voltage = true)
     ()
@@ -94,9 +98,11 @@ let lif
     { tau
     ; tau_refr
     ; threshold
+    ; resting_potential
     ; axon_delay
+    ; init_voltage
     ; spikes = []
-    ; last_known_voltage = 0., 0.
+    ; last_known_voltage = 0., init_voltage
     ; voltages = (if log_voltage then Some [] else None)
     ; targets = []
     }
@@ -119,15 +125,22 @@ let voltage_trace ?(dt = 1E-3) ~duration = function
       else (
         match events with
         | [] ->
-          let v = v *. exp (-.dt /. x.tau) in
+          let v =
+            x.resting_potential +. ((v -. x.resting_potential) *. exp (-.dt /. x.tau))
+          in
           consume events (v :: vs) (t +. dt) v
         | (t_ev, _) :: _ when t < t_ev ->
           (* we are still waiting for the next jump *)
-          let v = v *. exp (-.dt /. x.tau) in
+          let v =
+            x.resting_potential +. ((v -. x.resting_potential) *. exp (-.dt /. x.tau))
+          in
           consume events (v :: vs) (t +. dt) v
         | (t_ev, v_ev) :: rest ->
           (* we have just moved past an event *)
-          let v = v_ev *. exp (-.(t -. t_ev) /. x.tau) in
+          let v =
+            x.resting_potential
+            +. ((v_ev -. x.resting_potential) *. exp (-.(t -. t_ev) /. x.tau))
+          in
           (* we still need to look ahead to check that if we
              step into t +. dt, we are not going to leave the next event behind,
              in which case we would then miss it *)
@@ -150,7 +163,11 @@ let process_input (`lif x) (t, w) queue =
     (* do nothing if still within refractory period *) queue
   | _ ->
     let t_prev, u_prev = x.last_known_voltage in
-    let u = (u_prev *. exp ((t_prev -. t) /. x.tau)) +. w in
+    let u =
+      x.resting_potential
+      +. ((u_prev -. x.resting_potential) *. exp ((t_prev -. t) /. x.tau))
+      +. w
+    in
     if u < x.threshold
     then (
       log_voltage x (t, u);
@@ -181,7 +198,7 @@ let poisson_renew (`poisson x) t queue =
   Queue.add queue (t +. exp_rv x.lambda, `poisson x)
 
 
-type connections = neuron * (float * neuron) list
+type connections = (neuron * (float * neuron) list) array
 
 let all_to_all_connections ~from ~onto ~w =
   Array.map
@@ -211,7 +228,7 @@ let random_connections ~from ~onto ~k ~w =
 
 type network =
   { neurons : neuron array list
-  ; connections : connections array list
+  ; connections : connections list
   }
 
 let simulate ?(display = false) ~duration net =
@@ -237,7 +254,7 @@ let simulate ?(display = false) ~duration net =
       (* display time progress if applicable *)
       (match ph with
       | Some ph ->
-        if t > !last_t_info +. 0.1
+        if t > !last_t_info +. 0.01
         then (
           print_msg ~ph (string_of_float t);
           last_t_info := t)
