@@ -272,3 +272,25 @@ let count_spikes ~after (t, vm) =
       count (i + 1) c new_state)
   in
   count 0 0 false
+
+
+let spikes ~after (t, vm) =
+  if Mat.col_num t > 1 || Mat.row_num t <> Mat.row_num vm
+  then
+    failwith
+      "[count_spikes ~after (t, vm)]: t must be a column vector, with the same number \
+       of rows as vm";
+  let n = Mat.row_num t in
+  let rec get i accu state =
+    if i = n
+    then List.rev accu
+    else if Mat.get t i 0 < after
+    then get (i + 1) accu state
+    else (
+      let new_state = Mat.get vm i 0 > -20.0 in
+      let accu = if (not state) && new_state then Mat.get t i 0 :: accu else accu in
+      get (i + 1) accu new_state)
+  in
+  get 0 [] false 
+
+

@@ -73,3 +73,9 @@ end
     until the end of the time series. [t] must be a column vector, with the same
     number of rows as [vm]; if [vm] has multiple columns, only the first one is considered. *)
 val count_spikes : after:float -> Mat.mat * Mat.mat -> int
+
+(** [spikes ~after:2.0 (t, vm)] returns a list of all spike times that occurred
+    after 2 seconds, given a membrane potential time series (t, vm).
+    [t] must be a column vector, with the same number of rows as [vm]; if [vm]
+    has multiple columns, only the first one is considered. *)
+val spikes : after:float -> Mat.mat * Mat.mat -> float list
