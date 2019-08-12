@@ -39,7 +39,7 @@ let plot_image ?ph ?(size = 300, 300) x =
       ; cbrange (-.r, r)
       ]
   in
-  Juplot.draw ?display_id:ph ~size figure
+  Juplot.draw ~fmt:`svg ?display_id:ph ~size figure
 
 
 type stream = int -> Arr.arr
@@ -80,7 +80,7 @@ let visualise_stream stream =
           ; set "palette model RGB defined (-1 'black', 1 'white')"
           ]
       in
-      Juplot.draw ~size:(50, 50) ~display_id figure;
+      Juplot.draw ~fmt:`svg ~size:(50, 50) ~display_id figure;
       Unix.sleepf 0.1;
       iter (k - 1))
   in
@@ -116,7 +116,7 @@ let plot_patches ?(display_id = Jupyter_notebook.display "text/html" "") p =
             ; set "palette model RGB defined (-1 'blue', 0 'white', 1 'red')"
             ]))
   in
-  Juplot.draw ~fmt:`png ~size:(500, 500) ~display_id figure
+  Juplot.draw ~fmt:`svg ~size:(500, 500) ~display_id figure
 
 
 let default_callback iterations =
