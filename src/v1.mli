@@ -7,14 +7,14 @@ open Owl
     of the ith neuron. *)
 val angles : Mat.mat
 
-type radians = float
+type radians
 
 (** Converts degrees into radians. *)
 val rad_of_deg : float -> radians
 
 (** {1 LGN input} *)
 
-(** [input_from_LGN ~epsilon contrast angle] models LGN input as a vector
+(** [input_from_LGN contrast angle] models LGN input as a vector
     of size [n], when an oriented stimulus ([angle]) is presented at some
     [contrast] (a number typically between 0 and 1). Try it, plot it! *)
 val input_from_LGN : float -> radians -> Mat.mat
