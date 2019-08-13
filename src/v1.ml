@@ -10,7 +10,7 @@ let rad_of_deg x = Const.pi *. x /. 180.
 
 let input_from_LGN contrast angle =
   let epsilon = 0.1 in
-  Mat.(0.8 $+ (contrast $* (1. -. epsilon $+ (epsilon $* cos (2. $* angles -$ angle)))))
+  Mat.(contrast $* (1. -. epsilon $+ (epsilon $* cos (2. $* angles -$ angle))))
 
 
 let firing_rate_function x = max 0. (min 1. (x -. 1.))
