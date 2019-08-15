@@ -50,14 +50,16 @@ let with_indicator ?ph ?(description="index") iter_fun =
 
 
 let average_over ?display n f =
-  Mat.init 1 n (fun k ->
+  let trials = Array.init n (fun k ->
       (match display with
       | Some (display_id, label) ->
         Jupyter_notebook.printf "[%s] %05i / %05i" label k n;
         Jupyter_notebook.display_formatter ~display_id "text/html" |> ignore
       | None -> ());
-      f k)
-  |> Mat.mean'
+      f ()) in
+  let mu = Stats.mean trials in
+  let delta = 1.96 *. Stats.sem trials in
+  mu, (mu -. delta, mu +. delta)
 
 
 let how_long f =

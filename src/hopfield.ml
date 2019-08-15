@@ -49,7 +49,7 @@ let connectivity patterns =
   Mat.(w - diagm (diag w))
 
 
-let compare_patterns ?display_id x_true x =
+let plot_pattern ?display_id x =
   let open Gp in
   let display_id =
     match display_id with
@@ -64,18 +64,41 @@ let compare_patterns ?display_id x_true x =
       [ barebone
       ; margins [ `left 0.1; `right 0.9; `top 0.9; `bottom 0.57 ]
       ; yrange (0., 1.1)
-      ; ylabel "x"
+      ; xlabel "neurons"
+      ; set "palette model RGB define (0 'white', 1 'black')"
+      ; cbrange (0.0, 1.0)
+      ]
+  in
+  Juplot.draw ~display_id ~size:(300, 75) figure
+
+
+let compare_patterns ?display_id (x1, label1) (x2, label2) =
+  let open Gp in
+  let display_id =
+    match display_id with
+    | None -> Jupyter_notebook.display "text/html" ""
+    | Some id -> id
+  in
+  let figure (module P : Plot) =
+    P.plot
+      (A x1)
+      ~using:"0:(1):1"
+      ~style:"boxes fs solid 1.0 noborder lc palette"
+      [ barebone
+      ; margins [ `left 0.1; `right 0.9; `top 0.9; `bottom 0.57 ]
+      ; yrange (0., 1.1)
+      ; ylabel label1
       ; set "palette model RGB define (0 'white', 1 'black')"
       ; cbrange (0.0, 1.0)
       ];
     P.plot
-      (A x_true)
+      (A x2)
       ~using:"0:(1):1"
       ~style:"boxes fs solid 1.0 noborder lc palette"
       [ barebone
       ; margins [ `left 0.1; `right 0.9; `top 0.53; `bottom 0.2 ]
       ; yrange (0., 1.1)
-      ; ylabel "true"
+      ; ylabel label2
       ; xlabel "neurons"
       ; set "palette model RGB define (0 'white', 1 'black')"
       ; cbrange (0.0, 1.0)
@@ -84,11 +107,11 @@ let compare_patterns ?display_id x_true x =
   Juplot.draw ~display_id ~size:(600, 150) figure
 
 
-let recall ?display ~t_max w cue =
+let recall ?compare_with ~t_max w cue =
   let m, n = Mat.shape cue in
   assert (m = 1);
   let display_info =
-    match display with
+    match compare_with with
     | None -> None
     | Some x_true -> Some (Jupyter_notebook.display "text/html" "", x_true)
   in
@@ -103,7 +126,8 @@ let recall ?display ~t_max w cue =
       then (
         Mat.set x 0 i (if hi > 0. then 1. else 0.);
         match display_info with
-        | Some (display_id, x_true) -> compare_patterns ~display_id x_true x
+        | Some (display_id, x_true) ->
+          compare_patterns ~display_id (x, "recalled") (x_true, "true")
         | None -> ());
       let queue =
         match next_update_time ~t_max t with

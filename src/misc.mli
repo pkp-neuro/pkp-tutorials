@@ -45,20 +45,27 @@ val with_indicator
   -> 'c
   -> 'd
 
-(** [average_over n f] is the average of [f 0, f 1, f 2, ..., f (n-1)].
+(** [average_over n f] return [mu, (lb, ub)] where [mu] is the average of [f ()]
+    over [n] trials, and [(lb, ub)] are the lower and upper bound of the 95%
+    confidence interval.
+
     If [f] takes a long time to evaluate (e.g. because it involves a lot of
     computational work), you might want to use the optional [display] argument
     to monitor progress in the notebook. This optional argument should be a
     pair of the form [(placeholder, string_description)] (try it!). For example:
     {[
       let ph = placeholder ()
-      let result = average_over ~display:(ph, "i") 100 (fun i -> Unix.sleepf 0.2; float i)
+      let result = average_over ~display:(ph, "i") 100 (fun () -> Unix.sleepf 0.2; Random.float 1.)
     ]}
-    will return the average of all integers between 0 and 99 (which is 49.5),
-    and display progress along the way (I intentionally slow down the
-    computation by using [Unix.sleepf 0.2] to force OCaml to wait 200ms each
-    time). *)
-val average_over : ?display:placeholder * string -> int -> (int -> float) -> float
+    will return the average of random numbers between 0. and 1. (which is 0.5),
+    along with the 95% confidence interval. It will display progress along the way
+    in the notebook (here I intentionally slow down the computation by using
+    [Unix.sleepf 0.2] to force OCaml to wait 200ms each time). *)
+val average_over
+  :  ?display:placeholder * string
+  -> int
+  -> (unit -> float)
+  -> float * (float * float)
 
 (** [how_long f] returns the evaluation [f ()] along with the
     time (in s) it took to do this. *)
